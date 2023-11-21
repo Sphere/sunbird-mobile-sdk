@@ -336,14 +336,21 @@ export class ExtractPayloads {
     }
 
     async copyAssets(tempLocationPath: string, asset: string, payloadDestinationPath: string, useSubDirectories?: boolean) {
+        console.log('tempLocationPath-', tempLocationPath);
+        console.log('asset-', asset);
+        console.log('payloadDestinationPath-', payloadDestinationPath);
+        console.log('useSubDirectories-', useSubDirectories);
+        console.log('FileUtil.getFileName(asset),-',  FileUtil.getFileName(asset));
         try {
             if (asset) {
                 // const iconSrc = tempLocationPath.concat(asset);
                 // const iconDestination = payloadDestinationPath.concat(asset);
                 const folderContainingFile = asset.substring(0, asset.lastIndexOf('/'));
+
                 // TODO: Can optimize folder creation
                 if (!useSubDirectories) {
-                    await this.fileService.createDir(payloadDestinationPath.concat(folderContainingFile), false);
+                    let createRe = await this.fileService.createDir(payloadDestinationPath.concat(folderContainingFile), false);
+                    console.log('createRe-', createRe);
                 }
 
                 // * only in case of iOS ****
@@ -360,11 +367,45 @@ export class ExtractPayloads {
                     });
                 }
                 // If source icon is not available then copy assets is failing and throwing exception.
-                await this.fileService.copyFile(tempLocationPath.concat(folderContainingFile), FileUtil.getFileName(asset),
-                    payloadDestinationPath.concat(folderContainingFile), FileUtil.getFileName(asset));
+                // copyFile(path: string, fileName: string, newPath: string, newFileName: string): Promise<Entry>;
+           
+                //tempLocationPath = tempLocationPath.replace('file://','');
+                //payloadDestinationPath = payloadDestinationPath.replace('file://','');
+                
+                  
+                // await this.fileService.copyFile(
+                //     tempLocationPath.concat(folderContainingFile), 
+                //     FileUtil.getFileName(asset),
+                //     payloadDestinationPath.concat(folderContainingFile), 
+                //     FileUtil.getFileName(asset)
+                // );
+                let newFileName = await FileUtil.getFileName(asset);
+                let pathExist:any = '';
+                try {
+                    pathExist = await this.fileService.exists(tempLocationPath.concat(newFileName));                    
+                } catch (error) {
+                    pathExist = '';
+                }
+                console.log('pathExist-', pathExist);
+                if(pathExist !== ''){
+                    await this.fileService.copyFile(
+                        tempLocationPath.concat(newFileName),
+                        newFileName,
+                        payloadDestinationPath.concat(folderContainingFile), 
+                        newFileName
+                    );
+                } else{
+                    await this.fileService.copyFile(
+                        tempLocationPath.concat(folderContainingFile), 
+                        FileUtil.getFileName(asset),
+                        payloadDestinationPath.concat(folderContainingFile), 
+                        FileUtil.getFileName(asset)
+                    );
+                }
+
             }
         } catch (e) {
-            console.error('Cannot Copy Asset');
+            console.error('Cannot Copy Asset---000011---', e);
             throw e;
         }
     }
