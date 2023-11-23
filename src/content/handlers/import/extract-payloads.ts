@@ -342,10 +342,10 @@ export class ExtractPayloads {
         console.log('useSubDirectories-', useSubDirectories);
         console.log('FileUtil.getFileName(asset),-',  FileUtil.getFileName(asset));
         try {
-            if (asset) {
+            if (asset && !(asset.startsWith("http://") || asset.startsWith("https://"))) {
                 // const iconSrc = tempLocationPath.concat(asset);
                 // const iconDestination = payloadDestinationPath.concat(asset);
-                const folderContainingFile = asset.substring(0, asset.lastIndexOf('/'));
+                let folderContainingFile = asset.substring(0, asset.lastIndexOf('/'));
 
                 // TODO: Can optimize folder creation
                 if (!useSubDirectories) {
