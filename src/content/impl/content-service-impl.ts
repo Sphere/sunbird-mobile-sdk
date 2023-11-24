@@ -430,6 +430,8 @@ export class ContentServiceImpl implements ContentService, DownloadCompleteDeleg
                                       contentData.name.concat('.', FileExtension.CONTENT) : contentId.concat('.', FileExtension.CONTENT)
                                 };
                                 downloadRequestList.push(downloadRequest);
+                                console.log('downloadRequestList-', downloadRequestList);
+
                             }
                             contentImportResponses.push({identifier: contentId, status: status});
                         }

@@ -119,7 +119,7 @@ export class DownloadServiceImpl implements DownloadService, SdkServiceOnInitDel
                     if (currentDownloadRequest) {
                         return this.addToDownloadList(downloadRequests);
                     }
-
+                    console.log('SDK download downloadRequests -', downloadRequests)
                     return this.addToDownloadList(downloadRequests)
                         .pipe(
                             tap(() => this.switchToNextDownloadRequest().toPromise())
@@ -256,6 +256,7 @@ export class DownloadServiceImpl implements DownloadService, SdkServiceOnInitDel
     }
 
     private addToDownloadList(requests: DownloadRequest[]): Observable<undefined> {
+        console.log('addToDownloadList rq -', requests);
         return this.sharedPreferencesSetCollection.addAll(requests).pipe(
             mapTo(undefined)
         );
