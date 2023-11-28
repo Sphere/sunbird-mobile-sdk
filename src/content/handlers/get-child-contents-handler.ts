@@ -51,6 +51,9 @@ export class ChildContentsHandler {
                         childContent.contentData.appIcon =
                             '_app_file_'.concat(childContent.basePath).concat(childContent.contentData.appIcon);
                     }
+                    if(childContent.contentData.mimeType === 'application/json'){
+                        childContent.contentData.artifactUrl = '_app_file_'.concat(childContent.basePath).concat(childContent.contentData.artifactUrl)
+                    }
                     childContents.push(childContent);
                 }
                 content.children = childContents;

@@ -372,13 +372,15 @@ export class ContentServiceImpl implements ContentService, DownloadCompleteDeleg
                     });
                 }
 
-                return childContentHandler.fetchChildrenOfContent(
+                let out = await childContentHandler.fetchChildrenOfContent(
                     rows[0],
                     childContentsMap,
                     0,
                     childContentRequest.level!,
                     hierarchyInfoList
                 );
+                console.log('childContentHandler-', out);
+                return out;
             })
         );
     }
