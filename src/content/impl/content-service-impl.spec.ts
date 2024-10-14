@@ -1632,11 +1632,11 @@ describe('ContentServiceImpl', () => {
             })) as any;
             const data = undefined;
             window['downloadManager'] = {
-                enqueue: jest.fn(({ }, fn) => fn(data, { id: 'sample-id' }as any)),
+                enqueue: jest.fn((_, fn) => fn(data, { id: 'sample-id' })),
                 query: jest.fn((_, fn) => fn(data, [{
                     status: DownloadStatus.STATUS_SUCCESSFUL,
                     localUri: 'http//:sample-path/do_id/fileName'
-                }]))as any
+                }]))
             } as any;
             sbutility.copyFile = jest.fn(((_, __, ___, cb) => { cb(); }));
             sbutility.rm = jest.fn((_, __, cb, err) => cb(true));
@@ -1667,12 +1667,12 @@ describe('ContentServiceImpl', () => {
             })) as any;
             const data = undefined;
             window['downloadManager'] = {
-                enqueue: jest.fn(({ }, fn) => fn(data, { id: 'sample-id' } as any)),
+                enqueue: jest.fn((_, fn) => fn(data, { id: 'sample-id' })),
                 query: jest.fn((_, fn) => fn(data, [{
                     status: DownloadStatus.STATUS_SUCCESSFUL,
                     localUri: 'http//:sample-path/do_id/fileName'
-                }])) as any
-            }as any;
+                }]))
+            } as any;
             sbutility.copyFile = jest.fn(((_, __, ___, cb) => { cb(); }));
             sbutility.rm = jest.fn((_, __, cb, err) => cb(true));
             // act
@@ -1701,8 +1701,8 @@ describe('ContentServiceImpl', () => {
             })) as any;
             const data = undefined;
             window['downloadManager'] = {
-                enqueue: jest.fn(({}, fn) => fn({err: 'error'}))
-            } as any;
+                enqueue: jest.fn((_, fn) => fn({err: 'error'}))
+            }as any;
             // act
             contentService.downloadTranscriptFile(transcriptReq).catch(() => {
                 // assert
@@ -1727,7 +1727,7 @@ describe('ContentServiceImpl', () => {
             })) as any;
             const data = undefined;
             window['downloadManager'] = {
-                enqueue: jest.fn(({ }, fn) => fn(data, { id: 'sample-id' })),
+                enqueue: jest.fn((_, fn) => fn(data, { id: 'sample-id' })),
                 query: jest.fn((_, fn) => fn(data, [{
                     status: DownloadStatus.STATUS_SUCCESSFUL,
                     localUri: 'http//:sample-path/do_id/fileName'
@@ -1763,14 +1763,14 @@ describe('ContentServiceImpl', () => {
             })) as any;
             const data = undefined;
             window['downloadManager'] = {
-                enqueue: jest.fn(({ }, fn) => fn(data, { id: 'sample-id' })),
+                enqueue: jest.fn((_, fn) => fn(data, { id: 'sample-id' })),
                 query: jest.fn((_, fn) => fn(data, [{
                     status: DownloadStatus.STATUS_SUCCESSFUL,
                     localUri: 'http//:sample-path/do_id/fileName'
                 }]))
             } as any;
             sbutility.copyFile = jest.fn(((_, __, ___, cb, err) => { cb(); }));
-            sbutility.rm = jest.fn((_, __, cb, err) => err(true));
+            sbutility.rm = jest.fn((_, __, ___, err) => err(true));
             // act
             contentService.downloadTranscriptFile(transcriptReq).then(() => {
                 // assert

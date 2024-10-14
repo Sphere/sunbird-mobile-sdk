@@ -8,7 +8,6 @@ const mockDbService: Partial<DbService> = {
   delete: jest.fn(),
   execute: jest.fn(),
   endTransaction: jest.fn(),
-  
 };
 
 describe('DeleteProfileDataHandler', () => {

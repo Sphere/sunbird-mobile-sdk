@@ -98,7 +98,6 @@ export class DeleteProfileDataHandler {
                             } else {
                                 return of(true).pipe(mapTo(uidList))
                             }
-                            
                         }),
                         mergeMap((uidList: string[]) => {
                             const deleteProfileObservable = this.dbService.execute(`DELETE  FROM ${ProfileEntry.TABLE_NAME} 
@@ -127,9 +126,9 @@ export class DeleteProfileDataHandler {
         const initialQuery = `${coloumnName} LIKE `;
         for (let i = 0; i < data.length; i++) {
             if (i < data.length - 1) {
-                likeQuery = likeQuery.concat(initialQuery, `'%%${data[i].toLowerCase().trim()}%%' OR `);
+                likeQuery = likeQuery.concat(initialQuery, `'%%~${data[i].toLowerCase().trim()}~%%' OR `);
             } else {
-                likeQuery = likeQuery.concat(initialQuery, `'%%${data[i].toLowerCase().trim()}%%' `);
+                likeQuery = likeQuery.concat(initialQuery, `'%%~${data[i].toLowerCase().trim()}~%%' `);
             }
         }
         return `(${likeQuery})`;
