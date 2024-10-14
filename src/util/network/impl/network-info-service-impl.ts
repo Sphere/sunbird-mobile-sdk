@@ -8,7 +8,7 @@ export class NetworkInfoServiceImpl implements NetworkInfoService {
     private networkStatusSource: BehaviorSubject<NetworkStatus>;
 
     constructor() {
-        if (navigator.connection.type === Connection.NONE) {
+        if (navigator.connection.type === 'none') {
             this.networkStatusSource = new BehaviorSubject<NetworkStatus>(NetworkStatus.OFFLINE);
         } else {
             this.networkStatusSource = new BehaviorSubject<NetworkStatus>(NetworkStatus.ONLINE);

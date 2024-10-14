@@ -106,7 +106,7 @@ describe('AppInfoImpl', () => {
         it('should update CsModule app version configuration', (done) => {
             // arrange
             window['sbutility'] = {
-                getBuildConfigValue: (packageName, property, cb) => {
+                getBuildConfigValue: (_, __, cb) => {
                     cb('SOME_APP_NAME');
                 }
             } as any;

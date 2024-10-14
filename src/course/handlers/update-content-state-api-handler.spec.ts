@@ -52,7 +52,6 @@ describe('UpdateContentStateApiHandler', () => {
 
       it('should send the error response returned from network queue', () => {
           // arrange
-          jest.spyOn(UniqueId, 'generateUniqueId').mockImplementation(() => 'SECRET')
           sbsync.onSyncSucces = jest.fn((_, error) => {
               // error({course_progress_error: 'progress_response_error'});
           });
@@ -63,7 +62,6 @@ describe('UpdateContentStateApiHandler', () => {
             setTimeout(() => {
               expect(mockNetworkQueue.enqueue).toBeCalledTimes(1);
               expect(error).toEqual({course_progress_error: 'progress_response_error'});
-            }, 0);
           });
       });
   });
