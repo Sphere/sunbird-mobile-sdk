@@ -29,15 +29,15 @@
   },
   "peerDependencies": {
     "@project-sunbird/client-services": "7.0.4",
-    "rxjs": ">=6",
     "cordova-plugin-advanced-http": "^2.0.2",
-    "cordova-plugin-file": "^7.0.0",
-    "cordova-plugin-awesome-shared-preferences": "^0.1.0",
-    "cordova-plugin-inappbrowser": "5.0.0",
-    "sb-cordova-plugin-customtabs": "git+https://github.com/Sunbird-Ed/sb-cordova-plugin-customtabs.git",
-    "sb-cordova-plugin-db": "git+https://github.com/Sunbird-Ed/sb-cordova-plugin-db.git",
-    "jjdltc-cordova-plugin-zip": "git+https://github.com/swayangjit/jjdltc-cordova-plugin-zip.git",
     "cordova-plugin-android-downloadmanager": "git+https://github.com/Sunbird-Ed/sb-cordova-plugin-downloadmanager.git",
+    "cordova-plugin-awesome-shared-preferences": "^0.1.0",
+    "cordova-plugin-file": "^7.0.0",
+    "cordova-plugin-inappbrowser": "5.0.0",
+    "jjdltc-cordova-plugin-zip": "git+https://github.com/swayangjit/jjdltc-cordova-plugin-zip.git",
+    "rxjs": ">=6",
+    "sb-cordova-plugin-customtabs": "git+https://github.com/Sunbird-Ed/sb-cordova-plugin-customtabs.git",
+    "sb-cordova-plugin-db": "github:Sunbird-Ed/sb-cordova-plugin-db#release-6.0.0",
     "sb-cordova-plugin-utility": "git+https://github.com/Sunbird-Ed/sb-cordova-plugin-utility/tree/release-6.0.0"
   },
   "devDependencies": {
