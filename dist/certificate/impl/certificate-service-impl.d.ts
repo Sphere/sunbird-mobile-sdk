@@ -1,0 +1,32 @@
+import { Container } from "inversify";
+import { CertificateService, GetPublicKeyRequest, GetPublicKeyResponse } from "../def/certificate-service";
+import { Observable } from 'rxjs';
+import { DbService } from "../../db";
+import { SdkConfig } from "../../sdk-config";
+import { ProfileService } from '../../profile';
+import { DownloadCertificateResponse } from '../../course/def/download-certificate-response';
+import { GetCertificateRequest } from '../../course/def/get-certificate-request';
+import { CSGetLearnerCerificateRequest, CsVerifyCertificateResponse, CsLearnerCertificateResponse, CsVerifyCertificateRequest } from "@project-sunbird/client-services/services/certificate";
+import { KeyValueStore } from '../../key-value-store';
+import { FileService } from '../../util/file/def/file-service';
+import { DownloadCertificateRequest } from "../../course/def/download-certificate-request";
+export declare class CertificateServiceImpl implements CertificateService {
+    private container;
+    private dbService;
+    private sdkConfig;
+    private profileService;
+    private keyValueStore;
+    private fileService;
+    constructor(container: Container, dbService: DbService, sdkConfig: SdkConfig, profileService: ProfileService, keyValueStore: KeyValueStore, fileService: FileService);
+    getCertificates(req: CSGetLearnerCerificateRequest): Observable<CsLearnerCertificateResponse>;
+    getPublicKey(request: GetPublicKeyRequest): Observable<GetPublicKeyResponse>;
+    getCertificate(request: GetCertificateRequest): Observable<string>;
+    downloadCertificate({ fileName, blob }: DownloadCertificateRequest): Observable<DownloadCertificateResponse>;
+    downloadLegacyeCertificate(request: GetCertificateRequest): Observable<DownloadCertificateResponse>;
+    isCertificateCached(request: GetCertificateRequest): Observable<boolean>;
+    getEncodedData(req: any): Promise<any>;
+    verifyCertificate(req: CsVerifyCertificateRequest): Observable<CsVerifyCertificateResponse>;
+    private readonly csCertificateService;
+    private buildCertificatePersistenceId;
+    private getCertificateFromCache;
+}

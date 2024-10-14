@@ -63,7 +63,13 @@ const config = {
         ]
     },
     resolve: {
-        extensions: ['.tsx', '.ts', '.js']
+        extensions: ['.tsx', '.ts', '.js'],
+        fallback: { 
+            "crypto": false,
+            "stream": false,
+            "buffer": false,
+            "util": false
+        }
     },
     optimization: {
         minimize: true

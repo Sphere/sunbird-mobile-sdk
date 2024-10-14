@@ -93,6 +93,7 @@ import {UpdateUserFeedRequest} from '../def/update-user-feed-request';
 import {DeleteUserFeedRequest} from '../def/delete-user-feed-request';
 import {UpdateServerProfileResponse} from '../def/update-server-profile-response';
 import {UpdateServerProfileInfoRequest} from '../def/update-server-profile-info-request';
+import {DeleteProfileDataHandler} from '../handler/delete-profile-data.handler';
 
 @injectable()
 export class ProfileServiceImpl implements ProfileService {
@@ -331,7 +332,7 @@ export class ProfileServiceImpl implements ProfileService {
                 ).toPromise();
             }),
             mergeMap(() => {
-                const profileDBEntry = ProfileDbEntryMapper.mapProfileToProfileDBEntry(profile);
+                const profileDBEntry: any = ProfileDbEntryMapper.mapProfileToProfileDBEntry(profile);
                 delete profileDBEntry[ProfileEntry.COLUMN_NAME_CREATED_AT];
 
                 return this.dbService.update({
@@ -792,6 +793,10 @@ export class ProfileServiceImpl implements ProfileService {
                 duration: Math.floor((Date.now() - profileSession.createdTime) / 1000)
             }).toPromise();
         }
+    }
+
+    deleteProfileData(uid: string): Observable<boolean> {
+        return new DeleteProfileDataHandler(this.dbService).delete(uid);
     }
 }
 
