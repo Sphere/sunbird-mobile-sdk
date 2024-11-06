@@ -29,13 +29,15 @@ export class ValidateEcar {
                 delete newData.content;
                 data = JSON.stringify(newData);
             }
-        } catch {
+        } catch(err) {
+            console.log('err validating ecar',err)
             data = await this.fileService.readAsText(importContext.tmpLocation!, FileName.MANIFEST.valueOf());
         }
 
         if (!data) {
             response.errorMesg = ContentErrorCode.IMPORT_FAILED_MANIFEST_FILE_NOT_FOUND.valueOf();
             await this.fileService.removeRecursively(importContext.tmpLocation!);
+            console.log('response in err',response)
             throw response;
         }
 
