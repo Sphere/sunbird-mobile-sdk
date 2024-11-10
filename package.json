@@ -32,7 +32,7 @@
     "cordova-plugin-advanced-http": "^2.0.2",
     "cordova-plugin-android-downloadmanager": "git+https://github.com/Sunbird-Ed/sb-cordova-plugin-downloadmanager.git",
     "cordova-plugin-awesome-shared-preferences": "^0.1.0",
-    "cordova-plugin-file": "^7.0.0",
+    "cordova-plugin-file": "8.0.0",
     "cordova-plugin-inappbrowser": "5.0.0",
     "jjdltc-cordova-plugin-zip": "git+https://github.com/swayangjit/jjdltc-cordova-plugin-zip.git",
     "rxjs": ">=6",
@@ -56,7 +56,7 @@
     "tsickle": "^0.27.2",
     "tslib": "^1.14.1",
     "tslint": "^5.20.1",
-    "typescript": "3.9.10",
+    "typescript": "4.3.5",
     "webpack": "^4.46.0",
     "webpack-cli": "^3.3.12"
   },
