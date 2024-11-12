@@ -23,6 +23,8 @@ coverage/
 node_modules/
 tmp/
 temp/
+.dist/
+dist/
 hooks/
 platforms/
 /www/
