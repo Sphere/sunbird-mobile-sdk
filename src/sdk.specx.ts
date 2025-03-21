@@ -35,7 +35,7 @@ const mockSdkConfig: SdkConfig = {
             mobileAppConsumer: 'some_build_config_MOBILE_APP_CONSUMER',
             channelId: 'some_build_config_CHANNEL_ID',
             producerId: 'some_build_config_PRODUCER_ID',
-            producerUniqueId: 'sunbird.app'
+            producerUniqueId: 'aastrika.app'
         },
         cached_requests: {
             timeToLive: 2 * 60 * 60 * 1000

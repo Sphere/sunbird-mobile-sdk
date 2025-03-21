@@ -3,7 +3,7 @@ import {NumberUtil} from '../../util/number-util';
 
 export class Actor {
     static readonly TYPE_SYSTEM = 'System';
-    static readonly TYPE_USER = 'User';
+    static readonly TYPE_USER = 'Guest user';
     id: string;
     type: string;
 
@@ -191,7 +191,8 @@ export namespace SunbirdTelemetry {
                            objType: string = '',
                            objVer: string = '',
                            rollup: Rollup = {},
-                           correlationData: Array<CorrelationData> = []) {
+                           correlationData: Array<CorrelationData> = [],
+                           actor?: Actor) {
             super(End.EID);
             this.edata = {
                 ...(type ? {type} : {}),
@@ -205,6 +206,7 @@ export namespace SunbirdTelemetry {
 
             this.object = new TelemetryObject(objId, objType, objVer);
             this.object.rollup = rollup;
+            this.actor = actor ? actor : new Actor();
         }
     }
 
@@ -222,7 +224,8 @@ export namespace SunbirdTelemetry {
                     objType: string = '',
                     objVer: string = '',
                     rollup: Rollup = {},
-                    correlationData: Array<CorrelationData> = []) {
+                    correlationData: Array<CorrelationData> = [],
+                    actor?: Actor) {
             super(Start.EID);
             this.edata = {
                 ...(type ? {type} : {type: ''}),
@@ -236,6 +239,7 @@ export namespace SunbirdTelemetry {
             this.context.env = env;
             this.object = new TelemetryObject(objId, objType, objVer);
             this.object.rollup = rollup ? rollup : {};
+            this.actor = actor ? actor : new Actor();
         }
     }
 
@@ -308,7 +312,9 @@ export namespace SunbirdTelemetry {
                     objType: string = '',
                     objVer: string = '',
                     rollup: Rollup = {},
-                    correlationData: Array<CorrelationData> = []) {
+                    correlationData: Array<CorrelationData> = [],
+                    pdata?: ProducerData,
+                    actor?: Actor) {
             super(Interact.EID);
             this.edata = {
                 ...{type},
@@ -322,6 +328,8 @@ export namespace SunbirdTelemetry {
             };
             this.context.cdata = correlationData;
             this.context.env = env;
+            this.context.pdata =  pdata ? pdata : new ProducerData();
+            this.actor = actor ? actor : new Actor();
             this.object = new TelemetryObject(objId, objType, objVer);
             this.object.rollup = rollup ? rollup : {};
         }
@@ -339,7 +347,8 @@ export namespace SunbirdTelemetry {
                            objType: string = '',
                            objVer: string = '',
                            rollup: Rollup = {},
-                           correlationData: Array<CorrelationData> = []) {
+                           correlationData: Array<CorrelationData> = [],
+                           actor?: Actor) {
             super(Impression.EID);
             this.edata = {
                 ...(type ? {type} : {type: ''}),
@@ -352,6 +361,7 @@ export namespace SunbirdTelemetry {
             this.context.env = env;
             this.object = new TelemetryObject(objId ? objId : '', objType ? objType : '', objVer ? objVer : '');
             this.object.rollup = rollup ? rollup : {};
+            this.actor = actor ? actor : new Actor();
         }
     }
 
@@ -402,13 +412,15 @@ export namespace SunbirdTelemetry {
         private static readonly EID = 'INTERRUPT';
 
         constructor(type: string,
-                    pageid: string | undefined) {
+                    pageid: string | undefined,
+                    actor?: Actor) {
             super(Interrupt.EID);
 
             this.edata = {
                 ...{type},
                 ...(pageid ? {pageid} : {})
             };
+            this.actor = actor ? actor : new Actor();
         }
     }
 

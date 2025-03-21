@@ -15,7 +15,7 @@ export const mockSdkConfig: Partial<SdkConfig> = {
             mobileAppConsumer: 'MOBILE_APP_CONSUMER',
             channelId: 'CHANNEL_ID',
             producerId: 'PRODUCER_ID',
-            producerUniqueId: 'sunbird.app'
+            producerUniqueId: 'aastrika.app'
         },
         cached_requests: {
             timeToLive: 2 * 60 * 60 * 1000

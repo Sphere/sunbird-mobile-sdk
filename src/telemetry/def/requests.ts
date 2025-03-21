@@ -1,5 +1,5 @@
 import {Environment, InteractType, LogLevel, LogType, PageId, ShareItemType} from './telemetry-constants';
-import {Actor, AuditState, CorrelationData, DeviceSpecification, Rollup, Visit} from './telemetry-model';
+import {Actor, AuditState, CorrelationData, DeviceSpecification, ProducerData, Rollup, Visit} from './telemetry-model';
 
 export interface TelemetryAuditRequest {
     env: string;
@@ -27,6 +27,8 @@ export class TelemetryInteractRequest {
     objId?: string;
     objType?: string;
     objVer?: string;
+    pdata?: ProducerData;
+    actor?: Actor;
 }
 
 export class TelemetryErrorRequest {
@@ -39,6 +41,7 @@ export class TelemetryErrorRequest {
 export class TelemetryInterruptRequest {
     type: string;
     pageId: string;
+    actor?: Actor;
 }
 
 export class TelemetryImpressionRequest {
@@ -52,6 +55,7 @@ export class TelemetryImpressionRequest {
     objVer?: string;
     correlationData?: Array<CorrelationData>;
     rollup?: Rollup;
+    actor?: Actor;
 }
 
 export class TelemetryStartRequest {
@@ -67,6 +71,7 @@ export class TelemetryStartRequest {
     objVer?: string;
     rollup?: Rollup;
     correlationData?: Array<CorrelationData>;
+    actor?: Actor;
 }
 
 export class TelemetrySummaryRequest {
@@ -78,6 +83,7 @@ export class TelemetrySummaryRequest {
     interactions: number;
     env: Environment;
     mode?: string;
+    actor?: Actor;
     envsummary?: {
         env: string,
         timespent: number,
@@ -117,6 +123,7 @@ export class TelemetryEndRequest {
     rollup?: Rollup;
     summaryList?: Array<{ [index: string]: any }>;
     correlationData?: Array<CorrelationData>;
+    actor?: Actor;
 }
 
 export class TelemetryFeedbackRequest {

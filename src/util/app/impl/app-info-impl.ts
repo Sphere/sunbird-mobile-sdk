@@ -40,7 +40,7 @@ export class AppInfoImpl implements AppInfo {
             return undefined;
         }
         const packageName = this.sdkConfig.appConfig.buildConfigPackage ? this.sdkConfig.appConfig.buildConfigPackage : 'org.sunbird.app';
-        this.versionName = "6.0-local";
+        this.versionName = "1.0-local";
                 if (CsModule.instance.isInitialised) {
                     CsModule.instance.updateConfig({
                         ...CsModule.instance.config,
@@ -48,7 +48,7 @@ export class AppInfoImpl implements AppInfo {
                             ...CsModule.instance.config.core,
                             global: {
                                 ...CsModule.instance.config.core.global,
-                                appVersion: "6.0-local"
+                                appVersion: "1.0-local"
                             }
                         }
                     });

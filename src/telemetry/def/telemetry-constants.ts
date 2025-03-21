@@ -72,7 +72,9 @@ export enum InteractSubType {
 
 
 export enum TelemetryErrorCode {
-    ERR_DOWNLOAD_FAILED = 'ERR_DOWNLOAD_FAILED'
+    ERR_DOWNLOAD_FAILED = 'ERR_DOWNLOAD_FAILED',
+    ERR_USER_LOGIN = "ERR_USER_LOGIN",
+    ERR_SEND_OTP = "ERR_SEND_OTP"
 }
 
 export enum ErrorType {

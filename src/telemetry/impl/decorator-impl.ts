@@ -45,8 +45,8 @@ export class TelemetryDecoratorImpl implements TelemetryDecorator {
         // TODO Add tag patching logic
         event.context.cdata = [
             ...event.context.cdata, {
-                id: profileSession.managedSession ? profileSession.managedSession.sid : profileSession.sid,
-                type: 'UserSession'
+                id: profileSession.managedSession ? profileSession.managedSession.sid : profileSession.uid,
+                type: 'Guest user'
             }
         ];
         return event;
