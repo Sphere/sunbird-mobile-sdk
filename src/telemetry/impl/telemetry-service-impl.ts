@@ -180,7 +180,7 @@ export class TelemetryServiceImpl implements TelemetryService, SdkServiceOnInitD
     }
 
     error(request: TelemetryErrorRequest): Observable<boolean> {
-        const error = new SunbirdTelemetry.Error(request.errorCode, request.errorType, request.stacktrace, request.pageId);
+        const error = new SunbirdTelemetry.Error(request.errorCode, request.errorType, request.stacktrace, request.pageId, request.actor);
         this.errorLoggerService.logError(request).toPromise().catch((e) => console.error(e));
         return this.decorateAndPersist(error);
     }

@@ -396,7 +396,8 @@ export namespace SunbirdTelemetry {
         constructor(errorCode: string | undefined,
                     errorType: string | undefined,
                     stacktrace: string | undefined,
-                    pageid: string | undefined) {
+                    pageid: string | undefined,
+                    actor?: Actor) {
             super(Error.EID);
 
             this.edata = {
@@ -405,6 +406,7 @@ export namespace SunbirdTelemetry {
                 ...(stacktrace ? {stacktrace} : {}),
                 ...(pageid ? {pageid} : {}),
             };
+            this.actor = actor ? actor : new Actor();
         }
     }
 

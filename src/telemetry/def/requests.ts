@@ -36,6 +36,7 @@ export class TelemetryErrorRequest {
     errorType: string;
     stacktrace: string;
     pageId: string;
+    actor?: Actor;
 }
 
 export class TelemetryInterruptRequest {
