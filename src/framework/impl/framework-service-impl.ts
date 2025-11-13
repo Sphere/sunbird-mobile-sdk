@@ -52,7 +52,7 @@ export class FrameworkServiceImpl implements FrameworkService {
             mapTo(undefined),
             catchError((e) => {
                 if (e instanceof NoActiveChannelFoundError) {
-                    return this.setActiveChannelId(this.sdkConfig.apiConfig.api_authentication.channelId);
+                    return this.setActiveChannelId(localStorage.getItem(FrameworkServiceImpl.KEY_ACTIVE_CHANNEL_ID) || this.sdkConfig.apiConfig.api_authentication.channelId);
                 }
 
                 throw e;
@@ -148,7 +148,7 @@ export class FrameworkServiceImpl implements FrameworkService {
     }
 
     setActiveChannelId(channelId: string): Observable<undefined> {
-        this._activeChannelId = channelId;
+        this._activeChannelId = localStorage.getItem(FrameworkServiceImpl.KEY_ACTIVE_CHANNEL_ID) || channelId;
         if (CsModule.instance.isInitialised) {
             CsModule.instance.updateConfig({
                 ...CsModule.instance.config,
