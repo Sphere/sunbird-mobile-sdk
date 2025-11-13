@@ -13,6 +13,7 @@ export class AppInfoImpl implements AppInfo {
 
     private versionName: string;
     private appName: string;
+    private appInformation: any;
 
     constructor(
         @inject(InjectionTokens.SDK_CONFIG) private sdkConfig: SdkConfig,
@@ -22,7 +23,8 @@ export class AppInfoImpl implements AppInfo {
             this.versionName = 'sunbird-debug';
         }
         window['Capacitor']['Plugins'].App.getInfo().then((info)  => {
-            this.appName = info.name
+            this.appInformation = info;
+            this.appName = info.name;
         })
     }
 
@@ -40,7 +42,8 @@ export class AppInfoImpl implements AppInfo {
             return undefined;
         }
         const packageName = this.sdkConfig.appConfig.buildConfigPackage ? this.sdkConfig.appConfig.buildConfigPackage : 'org.sunbird.app';
-        this.versionName = "1.0-local";
+        this.appInformation = this.appInformation || this.sdkConfig.apiConfig.api_authentication;
+        this.versionName = `${this.appInformation?.version}-${this.appInformation?.build}`;
                 if (CsModule.instance.isInitialised) {
                     CsModule.instance.updateConfig({
                         ...CsModule.instance.config,
@@ -48,7 +51,7 @@ export class AppInfoImpl implements AppInfo {
                             ...CsModule.instance.config.core,
                             global: {
                                 ...CsModule.instance.config.core.global,
-                                appVersion: "1.0-local"
+                                appVersion: this.versionName
                             }
                         }
                     });

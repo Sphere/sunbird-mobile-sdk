@@ -91,6 +91,9 @@ export class TelemetryDecoratorImpl implements TelemetryDecorator {
         if (!pData.ver) {
             pData.ver = this.appInfo.getVersionName();
         }
+        if (!pData.platform) {
+            pData.platform = `${window['device']?.platform}-${window['device']?.['version'] || window['device']?.['sdkVersion']}`;
+        }
     }
 
     prepare(event: Telemetry, priority) {

@@ -13,7 +13,9 @@ export interface ApiConfig {
         mobileAppConsumer: string,
         channelId: string,
         producerId: string,
-        producerUniqueId: string
+        producerUniqueId: string,
+        version: string,
+        build: string | number
     };
     cached_requests: {
         timeToLive: number
