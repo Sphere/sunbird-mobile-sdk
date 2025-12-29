@@ -77,9 +77,7 @@ export class TelemetryDecoratorImpl implements TelemetryDecorator {
             event.pdata = new ProducerData();
         }
         const pData: ProducerData = event.pdata;
-        if (!pData.id) {
-            pData.id = this.apiConfig.api_authentication.producerId;
-        }
+        pData.id = 'mobileApp'
         const pid = pData.pid;
         if (pid) {
             pData.pid = pid;
