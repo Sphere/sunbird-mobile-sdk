@@ -1,11 +1,11 @@
-import {GetFaqRequest} from './../def/get-faq-request';
-import {CachedItemStore} from '../../key-value-store';
-import {Path} from '../../util/file/util/path';
-import {FileService} from '../../util/file/def/file-service';
-import {ApiService, HttpRequestType, Request} from '../../api';
-import {from, Observable} from 'rxjs';
-import {Faq, FaqServiceConfig} from '..';
-import {map} from 'rxjs/operators';
+import { GetFaqRequest } from './../def/get-faq-request';
+import { CachedItemStore } from '../../key-value-store';
+import { Path } from '../../util/file/util/path';
+import { FileService } from '../../util/file/def/file-service';
+import { ApiService, HttpRequestType, Request } from '../../api';
+import { defer, from, Observable } from 'rxjs';
+import { Faq, FaqServiceConfig } from '..';
+import { map, switchMap } from 'rxjs/operators';
 
 
 export class GetFaqDetailsHandler {
@@ -52,17 +52,19 @@ export class GetFaqDetailsHandler {
     }
 
     private fetchFromFile(language: string): Observable<Faq> {
-        const dir = Path.getAssetPath() + this.faqServiceConfig.faqConfigDirPath;
-        const file = this.FAQ_FILE_KEY_PREFIX + language + '.json';
-
-        return from(this.fileservice.readFileFromAssets(dir.concat('/', file)))
-            .pipe(
-                map((filecontent: string) => {
-                    const result = JSON.parse(filecontent);
-                    return result;
-                })
-            );
+        return from(Path.getAssetPath()).pipe(
+            switchMap((assetPath: string) => {
+                const dir = assetPath + this.faqServiceConfig.faqConfigDirPath;
+                const file = this.FAQ_FILE_KEY_PREFIX + language + '.json';
+                const filePath = dir + '/' + file;
+                return from(this.fileservice.readFileFromAssets(filePath)).pipe(
+                    map((filecontent: string) => {
+                        const result = JSON.parse(filecontent);
+                        return result;
+                    })
+                );
+            })
+        );
     }
-
 
 }

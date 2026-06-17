@@ -1,11 +1,11 @@
-import {CachedItemRequestSourceFrom, CachedItemStore} from '../../key-value-store';
-import {Path} from '../../util/file/util/path';
-import {FileService} from '../../util/file/def/file-service';
-import {ApiRequestHandler, ApiService, HttpRequestType, Request} from '../../api';
-import {Channel, Framework, FrameworkDetailsRequest, FrameworkService, FrameworkServiceConfig} from '..';
-import {FrameworkMapper} from '../util/framework-mapper';
-import {defer, from, iif, Observable} from 'rxjs';
-import {map, mergeMap} from 'rxjs/operators';
+import { CachedItemRequestSourceFrom, CachedItemStore } from '../../key-value-store';
+import { Path } from '../../util/file/util/path';
+import { FileService } from '../../util/file/def/file-service';
+import { ApiRequestHandler, ApiService, HttpRequestType, Request } from '../../api';
+import { Channel, Framework, FrameworkDetailsRequest, FrameworkService, FrameworkServiceConfig } from '..';
+import { FrameworkMapper } from '../util/framework-mapper';
+import { defer, from, iif, Observable, throwError } from 'rxjs';
+import { catchError, map, mergeMap, switchMap } from 'rxjs/operators';
 
 
 export class GetFrameworkDetailsHandler implements ApiRequestHandler<FrameworkDetailsRequest, Framework> {
@@ -15,10 +15,10 @@ export class GetFrameworkDetailsHandler implements ApiRequestHandler<FrameworkDe
 
 
     constructor(private frameworkService: FrameworkService,
-                private apiService: ApiService,
-                private frameworkServiceConfig: FrameworkServiceConfig,
-                private fileService: FileService,
-                private cachedItemStore: CachedItemStore) {
+        private apiService: ApiService,
+        private frameworkServiceConfig: FrameworkServiceConfig,
+        private fileService: FileService,
+        private cachedItemStore: CachedItemStore) {
     }
 
     handle(request: FrameworkDetailsRequest): Observable<Framework> {
@@ -50,7 +50,7 @@ export class GetFrameworkDetailsHandler implements ApiRequestHandler<FrameworkDe
         const apiRequest: Request = new Request.Builder()
             .withType(HttpRequestType.GET)
             .withPath(this.frameworkServiceConfig.frameworkApiPath + this.GET_FRAMEWORK_DETAILS_ENDPOINT + '/' + request.frameworkId)
-            .withParameters({categories: request.requiredCategories.join(',')})
+            .withParameters({ categories: request.requiredCategories.join(',') })
             .withBearerToken(true)
             .build();
 
@@ -65,16 +65,24 @@ export class GetFrameworkDetailsHandler implements ApiRequestHandler<FrameworkDe
     }
 
     private fetchFromFile(request: FrameworkDetailsRequest): Observable<Framework> {
-        const dir = Path.getAssetPath() + this.frameworkServiceConfig.frameworkConfigDirPath;
-        const file = this.FRAMEWORK_FILE_KEY_PREFIX + request.frameworkId + '.json';
-
-        return from(this.fileService.readFileFromAssets(dir.concat('/', file))).pipe(
-            map((filecontent: string) => {
-                const result = JSON.parse(filecontent);
-                return result.result.framework;
+        return defer(() => Path.getAssetPath()).pipe(
+            switchMap((assetPath: string) => {
+                const dir = assetPath + this.frameworkServiceConfig.frameworkConfigDirPath;
+                const file = this.FRAMEWORK_FILE_KEY_PREFIX + request.frameworkId + '.json';
+                const filePath = dir + '/' + file;
+                return from(this.fileService.readFileFromAssets(filePath)).pipe(
+                    map((filecontent: string) => {
+                        const result = JSON.parse(filecontent);
+                        return result.result.framework;
+                    }),
+                    map((framework: Framework) => {
+                        return FrameworkMapper.prepareFrameworkCategoryAssociations(framework);
+                    })
+                );
             }),
-            map((framework: Framework) => {
-                return FrameworkMapper.prepareFrameworkCategoryAssociations(framework);
+            catchError(error => {
+                console.error('Error fetching form from file:', error);
+                return throwError(error);
             })
         );
     }

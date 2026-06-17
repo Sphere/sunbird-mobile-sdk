@@ -33,8 +33,8 @@ export class GetModifiedContentHandler {
         );
     }
 
-    private doesDestinationStorageExist(destination: string): Promise<boolean> {
-        return this.fileService.exists(destination).then(() => {
+    private async doesDestinationStorageExist(destination: string): Promise<boolean> {
+        return await this.fileService.exists(destination).then((entry: any) => {
             return true;
         }).catch(() => {
             return false;
@@ -64,8 +64,8 @@ export class GetModifiedContentHandler {
         return contentIdentifiers.filter(element => !ArrayUtil.contains(folderList, element));
     }
 
-    private getFolderList(destination: string): Promise<string[]> {
-        return this.fileService.listDir(destination.replace(/\/$/, ''))
+    private async getFolderList(destination: string): Promise<string[]> {
+        return await this.fileService.listDir(destination.replace(/\/$/, ''))
             .then((entries: any) => {
                 const folderList: string[] = entries.map((entry) => {
                     return entry.name;

@@ -6,24 +6,26 @@ import {
     ArchiveObjectExportProgress,
     ArchiveService, ArchiveObjectImportProgress,
 } from '..';
-import {combineLatest, from, Observable, concat, defer, throwError, of} from 'rxjs';
-import {concatMap, map, mapTo, tap} from 'rxjs/operators';
-import {UniqueId} from '../../db/util/unique-id';
-import {FileService} from '../../util/file/def/file-service';
-import {TelemetryExportDelegate} from '../export/impl/telemetry-export-delegate';
-import {DbService} from '../../db';
-import {InjectionTokens} from '../../injection-tokens';
-import {inject, injectable} from 'inversify';
-import {ProducerData, ShareDirection, ShareType, TelemetryService, TelemetryShareRequest} from '../../telemetry';
-import {ZipService} from '../../util/zip/def/zip-service';
-import {InvalidRequestError} from '..';
-import {TelemetryImportDelegate} from '../import/impl/telemetry-import-delegate';
-import {InvalidArchiveError} from '../import/error/invalid-archive-error';
-import {TelemetryArchivePackageMeta} from '../export/def/telemetry-archive-package-meta';
-import {FileUtil} from '../../util/file/util/file-util';
-import {DeviceInfo} from '../../util/device';
-import {NetworkQueue} from '../../api/network-queue';
-import {SdkConfig} from '../../sdk-config';
+import { combineLatest, from, Observable, concat, defer, throwError, of } from 'rxjs';
+import { catchError, concatMap, filter, map, mapTo, mergeMap, tap } from 'rxjs/operators';
+import { UniqueId } from '../../db/util/unique-id';
+import { FileService } from '../../util/file/def/file-service';
+import { TelemetryExportDelegate } from '../export/impl/telemetry-export-delegate';
+import { DbService } from '../../db';
+import { InjectionTokens } from '../../injection-tokens';
+import { inject, injectable } from 'inversify';
+import { ProducerData, ShareDirection, ShareType, TelemetryService, TelemetryShareRequest } from '../../telemetry';
+import { ZipService } from '../../util/zip/def/zip-service';
+import { InvalidRequestError } from '..';
+import { TelemetryImportDelegate } from '../import/impl/telemetry-import-delegate';
+import { InvalidArchiveError } from '../import/error/invalid-archive-error';
+import { TelemetryArchivePackageMeta } from '../export/def/telemetry-archive-package-meta';
+import { FileUtil } from '../../util/file/util/file-util';
+import { DeviceInfo } from '../../util/device';
+import { NetworkQueue } from '../../api/network-queue';
+import { SdkConfig } from '../../sdk-config';
+import { FilePaths } from '../../services/file-path/file-path.enum';
+import { FilePathService } from '../../services/file-path/file-path.service';
 
 interface ArchiveManifest {
     id: string;
@@ -61,7 +63,7 @@ export class ArchiveServiceImpl implements ArchiveService {
     private static reduceObjectProgressToArchiveObjectExportProgress(
         results: { type: ArchiveObjectType, progress: ArchiveObjectExportProgress }[]
     ): Map<ArchiveObjectType, ArchiveObjectExportProgress> {
-        return results.reduce((acc, {type, progress}) => {
+        return results.reduce((acc, { type, progress }) => {
             acc.set(type, progress);
             return acc;
         }, new Map<ArchiveObjectType, ArchiveObjectExportProgress>());
@@ -70,91 +72,103 @@ export class ArchiveServiceImpl implements ArchiveService {
     private static reduceObjectProgressToArchiveObjectImportProgress(
         results: { type: ArchiveObjectType, progress: ArchiveObjectImportProgress }[],
     ): Map<ArchiveObjectType, ArchiveObjectImportProgress> {
-        return results.reduce((acc, {type, progress}) => {
+        return results.reduce((acc, { type, progress }) => {
             acc.set(type, progress);
             return acc;
         }, new Map<ArchiveObjectType, ArchiveObjectImportProgress>());
     }
 
     export(exportRequest: ArchiveExportRequest): Observable<ArchiveExportProgress> {
-        const folderPath = (window.device.platform.toLowerCase() === "ios") ? cordova.file.documentsDirectory : cordova.file.externalCacheDirectory;
-        const workspacePath = `${folderPath}${UniqueId.generateUniqueId()}`;
-        let lastResult: ArchiveExportProgress | undefined;
+        return defer(async () => {
+            const platform = window.device.platform.toLowerCase();
+            const storagePath = platform === 'ios' ? FilePaths.DOCUMENTS : FilePaths.CACHE;
+            const folderUri = await FilePathService.getFilePath(storagePath);
+            return { folderUri };
+        }).pipe(
+            mergeMap(({ folderUri }) => {
+                const workspacePath = `${folderUri}${UniqueId.generateUniqueId()}`;
+                let lastResult: ArchiveExportProgress | undefined;
 
-        if (!exportRequest.objects.length) {
-            return throwError(new InvalidRequestError('No archive objects to export'));
-        }
+                if (!exportRequest.objects.length) {
+                    return throwError(new InvalidRequestError('No archive objects to export'));
+                }
 
-        return concat(
-            defer(() => from(this.fileService.createDir(workspacePath, false))).pipe(
-                concatMap(() => {
-                    return combineLatest(
-                        exportRequest.objects.map<Observable<{ type: ArchiveObjectType, progress: ArchiveObjectExportProgress }>>(object => {
-                            switch (object.type) {
-                                case ArchiveObjectType.CONTENT:
-                                    // TODO
-                                    throw new Error('To be implemented');
-                                case ArchiveObjectType.PROFILE:
-                                    // TODO
-                                    throw new Error('To be implemented');
-                                case ArchiveObjectType.TELEMETRY:
-                                    return new TelemetryExportDelegate(
-                                        this.dbService,
-                                        this.fileService,
-                                    ).export({ filePath: exportRequest.filePath }, { workspacePath }).pipe(
-                                        map((progress) => ({ type: ArchiveObjectType.TELEMETRY, progress: progress }))
-                                    );
-                            }
-                        })
-                    );
-                }),
-                map((results: { type: ArchiveObjectType, progress: ArchiveObjectExportProgress }[]) => {
-                    return {
-                        task: 'BUILDING',
-                        progress: ArchiveServiceImpl.reduceObjectProgressToArchiveObjectExportProgress(results)
-                    };
-                }),
-                tap((results) => lastResult = results)
-            ),
-            defer(() => this.generateManifestFile(lastResult!, workspacePath)),
-            defer(() => this.generateZipArchive(lastResult!, workspacePath)),
-            defer(() => this.generateExportTelemetries(lastResult!, workspacePath))
-        ).pipe(
-            tap((results) => lastResult = results)
+                return concat(
+                    defer(() => from(this.fileService.createDir(workspacePath, false))).pipe(
+                        concatMap(() => {
+                            return combineLatest(
+                                exportRequest.objects.map<Observable<{ type: ArchiveObjectType, progress: ArchiveObjectExportProgress }>>(object => {
+                                    switch (object.type) {
+                                        case ArchiveObjectType.CONTENT:
+                                            // TODO
+                                            throw new Error('To be implemented');
+                                        case ArchiveObjectType.PROFILE:
+                                            // TODO
+                                            throw new Error('To be implemented');
+                                        case ArchiveObjectType.TELEMETRY:
+                                            return new TelemetryExportDelegate(
+                                                this.dbService,
+                                                this.fileService,
+                                            ).export({ filePath: exportRequest.filePath }, { workspacePath }).pipe(
+                                                map((progress) => ({ type: ArchiveObjectType.TELEMETRY, progress: progress }))
+                                            );
+                                    }
+                                })
+                            );
+                        }),
+                        map((results: { type: ArchiveObjectType, progress: ArchiveObjectExportProgress }[]) => {
+                            return {
+                                task: 'BUILDING',
+                                progress: ArchiveServiceImpl.reduceObjectProgressToArchiveObjectExportProgress(results)
+                            };
+                        }),
+                        tap((results) => lastResult = results)
+                    ),
+                    defer(() => this.generateManifestFile(lastResult!, workspacePath)),
+                    defer(() => this.generateZipArchive(lastResult!, workspacePath)),
+                    defer(() => this.generateExportTelemetries(lastResult!, workspacePath))
+                ).pipe(
+                    tap((results) => lastResult = results)
+                );
+            }),
+            catchError(error => {
+                console.error('Error getting filesystem URI:', error);
+                return throwError(error);
+            })
         );
     }
 
     private generateExportTelemetries(progress: ArchiveExportProgress, workspacePath: string): Observable<ArchiveExportProgress> {
         progress.progress.forEach((v, k) => {
-           switch (k) {
-               case ArchiveObjectType.CONTENT:
-                   // TODO
-                   throw new Error('To be implemented');
-               case ArchiveObjectType.PROFILE:
-                   // TODO
-                   throw new Error('To be implemented');
-               case ArchiveObjectType.TELEMETRY: {
-                   // const items = (v as ArchiveObjectExportProgress<TelemetryPackageMeta>).completed.map((entry) => {
-                   //     return {
-                   //         type: ShareItemType.TELEMETRY,
-                   //         origin: this.deviceInfo.getDeviceID(),
-                   //         identifier: entry.mid,
-                   //         pkgVersion: 1,
-                   //         transferCount: entry.eventsCount,
-                   //         size: entry.size + ''
-                   //     };
-                   // });
+            switch (k) {
+                case ArchiveObjectType.CONTENT:
+                    // TODO
+                    throw new Error('To be implemented');
+                case ArchiveObjectType.PROFILE:
+                    // TODO
+                    throw new Error('To be implemented');
+                case ArchiveObjectType.TELEMETRY: {
+                    // const items = (v as ArchiveObjectExportProgress<TelemetryPackageMeta>).completed.map((entry) => {
+                    //     return {
+                    //         type: ShareItemType.TELEMETRY,
+                    //         origin: this.deviceInfo.getDeviceID(),
+                    //         identifier: entry.mid,
+                    //         pkgVersion: 1,
+                    //         transferCount: entry.eventsCount,
+                    //         size: entry.size + ''
+                    //     };
+                    // });
 
-                   const req: TelemetryShareRequest = {
-                       dir: ShareDirection.OUT,
-                       type: ShareType.FILE,
-                       items: [],
-                       env: 'sdk'
-                   };
+                    const req: TelemetryShareRequest = {
+                        dir: ShareDirection.OUT,
+                        type: ShareType.FILE,
+                        items: [],
+                        env: 'sdk'
+                    };
 
-                   this.telemetryService.share(req).toPromise();
-               }
-           }
+                    this.telemetryService.share(req).toPromise();
+                }
+            }
         });
 
         return of({
@@ -163,28 +177,39 @@ export class ArchiveServiceImpl implements ArchiveService {
     }
 
     private generateZipArchive(progress: ArchiveExportProgress, workspacePath: string): Observable<ArchiveExportProgress> {
-        const folderPath = (window.device.platform.toLowerCase() === "ios") ? cordova.file.documentsDirectory : cordova.file.externalCacheDirectory;
-        const zipFilePath = `${folderPath}archive-${new Date().toISOString()}.zip`;
-        return new Observable((observer) => {
-            this.zipService.zip(workspacePath, { target: zipFilePath }, [], [], () => {
-                observer.next();
-                observer.complete();
-            }, (e) => {
-                observer.error(e);
-            });
+        return defer(async () => {
+            const platform = window.device.platform.toLowerCase();
+            const storagePath = platform === 'ios' ? FilePaths.DOCUMENTS : FilePaths.CACHE;
+            const folderPath = await FilePathService.getFilePath(storagePath);
+            const zipFilePath = `${folderPath}archive-${new Date().toISOString()}.zip`;
+            return { zipFilePath };
         }).pipe(
-            mapTo({
-                ...progress,
-                task: 'COMPLETE',
-                filePath: zipFilePath
+            mergeMap(({ zipFilePath }) => {
+                return new Observable((observer) => {
+                    this.zipService.zip(workspacePath, { target: zipFilePath }, [], [], () => {
+                        observer.next({
+                            ...progress,
+                            task: 'COMPLETE',
+                            filePath: zipFilePath
+                        });
+                        observer.complete();
+                    }, (e) => {
+                        observer.error(e);
+                    });
+                });
+            }),
+            map((c) => c as ArchiveExportProgress),
+            catchError(error => {
+                console.error('Error creating zip archive:', error);
+                return throwError(error);
             })
         );
     }
 
-    private generateManifestFile({ progress}: ArchiveExportProgress, workspacePath: string): Observable<ArchiveExportProgress> {
+    private generateManifestFile({ progress }: ArchiveExportProgress, workspacePath: string): Observable<ArchiveExportProgress> {
         return this.telemetryService.buildContext().pipe(
             map((c) => c.pdata),
-            concatMap((producerData: ProducerData) => {
+            mergeMap((producerData: ProducerData) => {
                 const flattenedItems = Array.from(progress.entries()).reduce<{
                     file: string;
                     contentEncoding: 'identity' | 'gzip';
@@ -205,21 +230,26 @@ export class ArchiveServiceImpl implements ArchiveService {
                             items: flattenedItems
                         }
                     } as ArchiveManifest),
-                    {
-                        replace: true
-                    }
-                ));
+                    { replace: true }
+                )).pipe(
+                    catchError(error => {
+                        console.error('Error writing manifest file:', error);
+                        return throwError(new Error(`Failed to write manifest: ${error.message}`));
+                    })
+                );
             }),
             mapTo({
                 progress,
                 task: 'BUILDING_MANIFEST'
+            }),
+            catchError(error => {
+                console.error('Error in manifest generation:', error);
+                return throwError(error);
             })
         );
     }
 
     import(importRequest: ArchiveImportRequest): Observable<ArchiveImportProgress> {
-        const folderPath = (window.device.platform.toLowerCase() === "ios") ? cordova.file.documentsDirectory : cordova.file.externalCacheDirectory;
-        const workspacePath = `${folderPath}${UniqueId.generateUniqueId()}`;
 
         if (!importRequest.objects.length) {
             return throwError(new InvalidRequestError('No archive objects to export'));
@@ -231,54 +261,71 @@ export class ArchiveServiceImpl implements ArchiveService {
             filePath: importRequest.filePath
         };
 
-        return concat(
-            defer(() => from(this.fileService.createDir(workspacePath, false))).pipe(
-                concatMap(() => this.extractZipArchive(lastResult, workspacePath))
-            ),
-            defer(() => this.readManifestFile(lastResult, workspacePath, importRequest.objects.map(o => o.type))),
-            defer(() => this.generateImportTelemetries(lastResult, workspacePath)),
-            defer(() => {
-                return combineLatest(
-                    importRequest.objects.map<Observable<{ type: ArchiveObjectType, progress: ArchiveObjectImportProgress }>>(object => {
-                        switch (object.type) {
-                            case ArchiveObjectType.CONTENT:
-                                // TODO
-                                throw new Error('To be implemented');
-                            case ArchiveObjectType.PROFILE:
-                                // TODO
-                                throw new Error('To be implemented');
-                            case ArchiveObjectType.TELEMETRY:
-                                return new TelemetryImportDelegate(
-                                    this.dbService,
-                                    this.fileService,
-                                    this.networkQueue,
-                                    this.sdkConfig
-                                ).import({
-                                    filePath: importRequest.filePath
-                                }, {
-                                    workspacePath,
-                                    items: lastResult.progress
-                                        .get(ArchiveObjectType.TELEMETRY)!.pending as TelemetryArchivePackageMeta[]
-                                }).pipe(
-                                    map((progress) => ({ type: ArchiveObjectType.TELEMETRY, progress: progress }))
-                                );
-                        }
-                    })
-                ).pipe(
-                    map((results: { type: ArchiveObjectType, progress: ArchiveObjectImportProgress }[]) => {
-                        return {
-                            task: 'IMPORTING',
-                            progress: ArchiveServiceImpl.reduceObjectProgressToArchiveObjectImportProgress(results)
-                        };
+        return defer(async () => {
+            const platform = window.device.platform.toLowerCase();
+            const storagePath = platform === 'ios' ? FilePaths.DOCUMENTS : FilePaths.CACHE;
+            const folderUri = await FilePathService.getFilePath(storagePath);
+            const workspacePath = `${folderUri}${UniqueId.generateUniqueId()}`;
+            return { workspacePath };
+        }).pipe(
+            mergeMap(({ workspacePath }) =>
+                concat(
+                    defer(() => from(this.fileService.createDir(workspacePath, false))).pipe(
+                        concatMap(() => this.extractZipArchive(lastResult, workspacePath))
+                    ),
+                    defer(() => {
+                        const fileNameWithoutExtension = FileUtil.getFileName(importRequest.filePath).replace('.zip', '');
+
+                        const extractedFolderPath = `${workspacePath}/${fileNameWithoutExtension}`;
+
+                        return this.readManifestFile(lastResult, extractedFolderPath, importRequest.objects.map(o => o.type))
                     }),
-                );
+                    defer(() => this.generateImportTelemetries(lastResult, workspacePath)),
+                    defer(() => {
+                        return combineLatest(
+                            importRequest.objects.map<Observable<{ type: ArchiveObjectType, progress: ArchiveObjectImportProgress }>>(object => {
+                                switch (object.type) {
+                                    case ArchiveObjectType.CONTENT:
+                                        throw new Error('To be implemented');
+                                    case ArchiveObjectType.PROFILE:
+                                        throw new Error('To be implemented');
+                                    case ArchiveObjectType.TELEMETRY:
+                                        const fileNameWithoutExtension = FileUtil.getFileName(importRequest.filePath).replace('.zip', '');
+                                        const extractedFolderPath = `${workspacePath}/${fileNameWithoutExtension}`;
+
+                                        return new TelemetryImportDelegate(
+                                            this.dbService,
+                                            this.fileService,
+                                            this.networkQueue,
+                                            this.sdkConfig
+                                        ).import({
+                                            filePath: importRequest.filePath
+                                        }, {
+                                            workspacePath: extractedFolderPath,
+                                            items: lastResult!.progress
+                                                .get(ArchiveObjectType.TELEMETRY)!.pending as TelemetryArchivePackageMeta[]
+                                        }).pipe(
+                                            map((progress) => {
+                                                return {
+                                                    type: ArchiveObjectType.TELEMETRY,
+                                                    progress: progress
+                                                };
+                                            }),
+                                        );
+                                }
+                            })
+                        );
+                    })
+                )
+            ),
+            filter((result): result is ArchiveImportProgress => {
+                return (result as ArchiveImportProgress).task !== undefined;
             }),
-            of({
-                ...lastResult,
-                task: 'COMPLETE',
+            tap((results) => lastResult = results),
+            catchError((error) => {
+                console.error('Import error:', error);
+                return throwError(error);
             })
-        ).pipe(
-            tap((results) => lastResult = results)
         );
     }
 

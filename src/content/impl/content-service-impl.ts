@@ -37,73 +37,75 @@ import {
     SearchResponse,
     SearchType,
 } from '..';
-import {combineLatest, defer, forkJoin, from, interval, Observable, Observer, of} from 'rxjs';
-import {ApiRequestHandler, ApiService, Response} from '../../api';
-import {ProfileService} from '../../profile';
-import {GetContentDetailsHandler} from '../handlers/get-content-details-handler';
-import {DbService} from '../../db';
-import {ChildContentsHandler} from '../handlers/get-child-contents-handler';
-import {ContentEntry, ContentMarkerEntry} from '../db/schema';
-import {ContentUtil} from '../util/content-util';
-import {DeleteContentHandler} from '../handlers/delete-content-handler';
-import {SearchContentHandler} from '../handlers/search-content-handler';
-import {AppConfig} from '../../api/config/app-config';
-import {FileService} from '../../util/file/def/file-service';
-import {DirectoryEntry, Entry} from '../../util/file';
-import {GetContentsHandler} from '../handlers/get-contents-handler';
-import {ContentMapper} from '../util/content-mapper';
-import {ImportNExportHandler} from '../handlers/import-n-export-handler';
-import {CreateContentExportManifest} from '../handlers/export/create-content-export-manifest';
-import {WriteManifest} from '../handlers/export/write-manifest';
-import {CompressContent} from '../handlers/export/compress-content';
-import {ZipService} from '../../util/zip/def/zip-service';
-import {DeviceMemoryCheck} from '../handlers/export/device-memory-check';
-import {CopyAsset} from '../handlers/export/copy-asset';
-import {EcarBundle} from '../handlers/export/ecar-bundle';
-import {ExtractEcar} from '../handlers/import/extract-ecar';
-import {ValidateEcar} from '../handlers/import/validate-ecar';
-import {ExtractPayloads} from '../handlers/import/extract-payloads';
-import {CreateContentImportManifest} from '../handlers/import/create-content-import-manifest';
-import {EcarCleanup} from '../handlers/import/ecar-cleanup';
-import {Rollup, TelemetryService} from '../../telemetry';
-import {UpdateSizeOnDevice} from '../handlers/import/update-size-on-device';
-import {CreateTempLoc} from '../handlers/export/create-temp-loc';
-import {SearchRequest} from '../def/search-request';
-import {ContentSearchApiHandler} from '../handlers/import/content-search-api-handler';
-import {ArrayUtil} from '../../util/array-util';
-import {FileUtil} from '../../util/file/util/file-util';
-import {DownloadRequest, DownloadService} from '../../util/download';
-import {DownloadCompleteDelegate} from '../../util/download/def/download-complete-delegate';
-import {EventNamespace, EventsBusService} from '../../events-bus';
-import {GenerateImportShareTelemetry} from '../handlers/import/generate-import-share-telemetry';
-import {GenerateExportShareTelemetry} from '../handlers/export/generate-export-share-telemetry';
-import {SharedPreferences} from '../../util/shared-preferences';
-import {GenerateInteractTelemetry} from '../handlers/import/generate-interact-telemetry';
-import {CachedItemStore} from '../../key-value-store';
-import {ContentKeys, FrameworkKeys} from '../../preference-keys';
-import {ContentStorageHandler} from '../handlers/content-storage-handler';
-import {SharedPreferencesSetCollection} from '../../util/shared-preferences/def/shared-preferences-set-collection';
-import {SharedPreferencesSetCollectionImpl} from '../../util/shared-preferences/impl/shared-preferences-set-collection-impl';
-import {SdkServiceOnInitDelegate} from '../../sdk-service-on-init-delegate';
-import {Container, inject, injectable} from 'inversify';
-import {CsInjectionTokens, InjectionTokens} from '../../injection-tokens';
-import {SdkConfig} from '../../sdk-config';
-import {DeviceInfo} from '../../util/device';
-import {catchError, filter, map, mapTo, mergeMap, switchMap, take, tap} from 'rxjs/operators';
-import {CopyToDestination} from '../handlers/export/copy-to-destination';
-import {AppInfo} from '../../util/app';
-import {GetContentHeirarchyHandler} from '../handlers/get-content-heirarchy-handler';
-import {DeleteTempDir} from '../handlers/export/deletete-temp-dir';
-import {ContentAggregator} from '../handlers/content-aggregator';
-import {FormService} from '../../form';
-import {CsMimeTypeFacetToMimeTypeCategoryAggregator} from '@project-sunbird/client-services/services/content/utilities/mime-type-facet-to-mime-type-category-aggregator';
-import {MimeTypeCategory} from '@project-sunbird/client-services/models/content/index';
-import {CourseService} from '../../course';
-import {NetworkInfoService} from '../../util/network';
+import { combineLatest, defer, forkJoin, from, interval, Observable, Observer, of } from 'rxjs';
+import { ApiRequestHandler, ApiService, Response } from '../../api';
+import { ProfileService } from '../../profile';
+import { GetContentDetailsHandler } from '../handlers/get-content-details-handler';
+import { DbService } from '../../db';
+import { ChildContentsHandler } from '../handlers/get-child-contents-handler';
+import { ContentEntry, ContentMarkerEntry } from '../db/schema';
+import { ContentUtil } from '../util/content-util';
+import { DeleteContentHandler } from '../handlers/delete-content-handler';
+import { SearchContentHandler } from '../handlers/search-content-handler';
+import { AppConfig } from '../../api/config/app-config';
+import { FileService } from '../../util/file/def/file-service';
+import { DirectoryEntry, Entry } from '../../util/file';
+import { GetContentsHandler } from '../handlers/get-contents-handler';
+import { ContentMapper } from '../util/content-mapper';
+import { ImportNExportHandler } from '../handlers/import-n-export-handler';
+import { CreateContentExportManifest } from '../handlers/export/create-content-export-manifest';
+import { WriteManifest } from '../handlers/export/write-manifest';
+import { CompressContent } from '../handlers/export/compress-content';
+import { ZipService } from '../../util/zip/def/zip-service';
+import { DeviceMemoryCheck } from '../handlers/export/device-memory-check';
+import { CopyAsset } from '../handlers/export/copy-asset';
+import { EcarBundle } from '../handlers/export/ecar-bundle';
+import { ExtractEcar } from '../handlers/import/extract-ecar';
+import { ValidateEcar } from '../handlers/import/validate-ecar';
+import { ExtractPayloads } from '../handlers/import/extract-payloads';
+import { CreateContentImportManifest } from '../handlers/import/create-content-import-manifest';
+import { EcarCleanup } from '../handlers/import/ecar-cleanup';
+import { Rollup, TelemetryService } from '../../telemetry';
+import { UpdateSizeOnDevice } from '../handlers/import/update-size-on-device';
+import { CreateTempLoc } from '../handlers/export/create-temp-loc';
+import { SearchRequest } from '../def/search-request';
+import { ContentSearchApiHandler } from '../handlers/import/content-search-api-handler';
+import { ArrayUtil } from '../../util/array-util';
+import { FileUtil } from '../../util/file/util/file-util';
+import { DownloadRequest, DownloadService } from '../../util/download';
+import { DownloadCompleteDelegate } from '../../util/download/def/download-complete-delegate';
+import { EventNamespace, EventsBusService } from '../../events-bus';
+import { GenerateImportShareTelemetry } from '../handlers/import/generate-import-share-telemetry';
+import { GenerateExportShareTelemetry } from '../handlers/export/generate-export-share-telemetry';
+import { SharedPreferences } from '../../util/shared-preferences';
+import { GenerateInteractTelemetry } from '../handlers/import/generate-interact-telemetry';
+import { CachedItemStore } from '../../key-value-store';
+import { ContentKeys, FrameworkKeys } from '../../preference-keys';
+import { ContentStorageHandler } from '../handlers/content-storage-handler';
+import { SharedPreferencesSetCollection } from '../../util/shared-preferences/def/shared-preferences-set-collection';
+import { SharedPreferencesSetCollectionImpl } from '../../util/shared-preferences/impl/shared-preferences-set-collection-impl';
+import { SdkServiceOnInitDelegate } from '../../sdk-service-on-init-delegate';
+import { Container, inject, injectable } from 'inversify';
+import { CsInjectionTokens, InjectionTokens } from '../../injection-tokens';
+import { SdkConfig } from '../../sdk-config';
+import { DeviceInfo } from '../../util/device';
+import { catchError, filter, map, mapTo, mergeMap, switchMap, take, tap } from 'rxjs/operators';
+import { CopyToDestination } from '../handlers/export/copy-to-destination';
+import { AppInfo } from '../../util/app';
+import { GetContentHeirarchyHandler } from '../handlers/get-content-heirarchy-handler';
+import { DeleteTempDir } from '../handlers/export/deletete-temp-dir';
+import { ContentAggregator } from '../handlers/content-aggregator';
+import { FormService } from '../../form';
+import { CsMimeTypeFacetToMimeTypeCategoryAggregator } from '@project-sunbird/client-services/services/content/utilities/mime-type-facet-to-mime-type-category-aggregator';
+import { MimeTypeCategory } from '@project-sunbird/client-services/models/content';
+import { CourseService } from '../../course';
+import { NetworkInfoService } from '../../util/network';
 import { CsContentService } from '@project-sunbird/client-services/services/content';
 import { StorageService } from '../../storage/def/storage-service';
 import { QuestionSetFileReadHandler } from '../handlers/question-set-file-read-handler';
 import { GetChildQuestionSetHandler } from '../handlers/get-child-question-set-handler'
+import { FilePaths } from "../../services/file-path/file-path.enum";
+import { FilePathService } from '../../services/file-path/file-path.service';
 
 @injectable()
 export class ContentServiceImpl implements ContentService, DownloadCompleteDelegate, SdkServiceOnInitDelegate {
@@ -230,7 +232,7 @@ export class ContentServiceImpl implements ContentService, DownloadCompleteDeleg
     }
 
     cancelImport(contentId: string): Observable<any> {
-        return this.downloadService.cancel({identifier: contentId});
+        return this.downloadService.cancel({ identifier: contentId });
     }
 
     deleteContent(contentDeleteRequest: ContentDeleteRequest): Observable<ContentDeleteResponse[]> {
@@ -289,9 +291,9 @@ export class ContentServiceImpl implements ContentService, DownloadCompleteDeleg
     exportContent(contentExportRequest: ContentExportRequest): Observable<ContentExportResponse> {
         const exportHandler = new ImportNExportHandler(this.deviceInfo, this.dbService, this.fileService);
         return from(exportHandler.getContentExportDBModelToExport(contentExportRequest.contentIds)
-            .then((contentsInDb: ContentEntry.SchemaMap[]) => {
-                return this.fileService.getTempLocation(contentExportRequest.destinationFolder)
-                    .then((tempLocationPath: DirectoryEntry) => {
+            .then(async (contentsInDb: ContentEntry.SchemaMap[]) => {
+                return await this.fileService.getTempLocation(contentExportRequest.destinationFolder)
+                    .then((tempLocationPath: any) => {
                         const metaData: { [key: string]: any } = {};
                         const fileName = ContentUtil.getExportedFileName(contentsInDb, this.appInfo.getAppName());
                         metaData['content_count'] = contentsInDb.length;
@@ -328,10 +330,10 @@ export class ContentServiceImpl implements ContentService, DownloadCompleteDeleg
                         const fileName = ContentUtil.getExportedFileName(contentsInDb, this.appInfo.getAppName());
                         return new GenerateExportShareTelemetry(
                             this.telemetryService).execute(exportResponse.body, fileName, contentExportRequest
-                        );
+                            );
                     }).then((exportResponse: Response<ContentExportResponse>) => {
                         return exportResponse.body;
-                    });
+                    }).catch((e) => { throw new Error(e); });
             }));
     }
 
@@ -398,9 +400,9 @@ export class ContentServiceImpl implements ContentService, DownloadCompleteDeleg
         return new ContentSearchApiHandler(this.apiService, this.contentServiceConfig).handle(filter).pipe(
             map((searchResponse: SearchResponse) => {
                 return (searchResponse.result.content && searchResponse.result.content.length &&
-                     searchResponse.result.QuestionSet && searchResponse.result.QuestionSet.length) ?
-                  searchResponse.result.content.concat(searchResponse.result.QuestionSet) :
-                   searchResponse.result.content || searchResponse.result.QuestionSet;
+                    searchResponse.result.QuestionSet && searchResponse.result.QuestionSet.length) ?
+                    searchResponse.result.content.concat(searchResponse.result.QuestionSet) :
+                    searchResponse.result.content || searchResponse.result.QuestionSet;
             }),
             mergeMap((contents: ContentData[]) => defer(async () => {
                 const contentImportResponses: ContentImportResponse[] = [];
@@ -429,13 +431,11 @@ export class ContentServiceImpl implements ContentService, DownloadCompleteDeleg
                                     withPriority: contentImportRequest.withPriority ||
                                         (contentData.mimeType === MimeType.COLLECTION.valueOf() ? 1 : 0),
                                     title: contentData.name ?
-                                      contentData.name.concat('.', FileExtension.CONTENT) : contentId.concat('.', FileExtension.CONTENT)
+                                        contentData.name.concat('.', FileExtension.CONTENT) : contentId.concat('.', FileExtension.CONTENT)
                                 };
                                 downloadRequestList.push(downloadRequest);
-                                console.log('downloadRequestList-', downloadRequestList);
-
                             }
-                            contentImportResponses.push({identifier: contentId, status: status});
+                            contentImportResponses.push({ identifier: contentId, status: status });
                         }
                     }
                     this.downloadService.download(downloadRequestList).toPromise().then();
@@ -447,7 +447,7 @@ export class ContentServiceImpl implements ContentService, DownloadCompleteDeleg
     }
 
     importEcar(ecarImportRequest: EcarImportRequest): Observable<ContentImportResponse[]> {
-        return from(this.fileService.exists(ecarImportRequest.sourceFilePath).then((entry: Entry) => {
+        return from(this.fileService.exists(ecarImportRequest.sourceFilePath).then(async (entry: any) => {
             const importContentContext: ImportContentContext = {
                 isChildContent: ecarImportRequest.isChildContent,
                 ecarFilePath: ecarImportRequest.sourceFilePath,
@@ -460,70 +460,55 @@ export class ContentServiceImpl implements ContentService, DownloadCompleteDeleg
                 contentIdsToDelete: new Set(),
                 identifier: ecarImportRequest.identifier
             };
-            return new GenerateInteractTelemetry(this.telemetryService).execute(importContentContext, 'ContentImport-Initiated')
-                .then(() => {
-                    return this.fileService.getTempLocation(ecarImportRequest.destinationFolder);
-                }).then((tempLocation: DirectoryEntry) => {
-                    importContentContext.tmpLocation = tempLocation.nativeURL;
-                    return new ExtractEcar(this.fileService, this.zipService).execute(importContentContext);
-                }).then((importResponse: Response) => {
-                    return new ValidateEcar(this.fileService, this.dbService, this.appConfig,
-                        this.getContentDetailsHandler).execute(importResponse.body);
-                }).then((importResponse: Response) => {
-                    return new ExtractPayloads(this.fileService, this.zipService, this.appConfig,
-                        this.dbService, this.deviceInfo, this.getContentDetailsHandler, this.eventsBusService, this.sharedPreferences)
-                        .execute(importResponse.body);
-                }).then(([importResponse, ref]: [Response, NodeJS.Timeout]) => {
-                    this.contentUpdateSizeOnDeviceTimeoutRef.set(importContentContext.rootIdentifier ?
-                        importContentContext.rootIdentifier : importContentContext.identifiers![0], ref);
-                    this.eventsBusService.emit({
-                        namespace: EventNamespace.CONTENT,
-                        event: {
-                            type: ContentEventType.CONTENT_EXTRACT_COMPLETED,
-                            payload: {
-                                contentId: importContentContext.rootIdentifier ?
-                                    importContentContext.rootIdentifier : importContentContext.identifiers![0]
-                            }
-                        }
-                    });
-                    const response: Response = new Response();
-                    return new CreateContentImportManifest(this.dbService, this.deviceInfo, this.fileService).execute(importResponse.body);
-                    // }).then((importResponse: Response) => {
-                    //     return new CreateHierarchy(this.dbService, this.fileService).execute(importResponse.body);
-                }).then((importResponse: Response) => {
-                    return new EcarCleanup(this.fileService).execute(importResponse.body);
-                }).then((importResponse: Response) => {
-                    const response: Response = new Response();
-                    return this.cleanupContent(importContentContext).toPromise()
-                        .then(() => {
-                            response.body = importContentContext;
-                            return Promise.resolve(response);
-                        }).catch(() => {
-                            return Promise.reject(response);
-                        });
-                    // }).then((importResponse: Response) => {
-                    //     new UpdateSizeOnDevice(this.dbService, this.sharedPreferences).execute();
-                    //     return importResponse;
-                }).then((importResponse: Response) => {
-                    return new GenerateImportShareTelemetry(this.telemetryService).execute(importResponse.body);
-                }).then((importResponse: Response) => {
-                    return new GenerateInteractTelemetry(this.telemetryService).execute(importResponse.body, 'ContentImport-Success');
-                }).then((importResponse: Response<ImportContentContext>) => {
-                    this.eventsBusService.emit({
-                        namespace: EventNamespace.CONTENT,
-                        event: {
-                            type: ContentEventType.IMPORT_COMPLETED,
-                            payload: {
-                                contentId: importContentContext.rootIdentifier ?
-                                    importContentContext.rootIdentifier : importContentContext.identifiers![0]
-                            }
-                        }
-                    });
-                    return importResponse.body.contentImportResponseList;
-                });
+            await new GenerateInteractTelemetry(this.telemetryService).execute(importContentContext, 'ContentImport-Initiated');
+            const tempLocation = await this.fileService.getTempLocation(ecarImportRequest.destinationFolder)
+            importContentContext.tmpLocation = tempLocation.nativeURL;
+            const importResponse = await new ExtractEcar(this.fileService, this.zipService).execute(importContentContext);
+            const importResponse_1 = await new ValidateEcar(this.fileService, this.dbService, this.appConfig,
+                this.getContentDetailsHandler).execute(importResponse.body);
+            const [importResponse_2, ref] = await new ExtractPayloads(this.fileService, this.zipService, this.appConfig,
+                this.dbService, this.deviceInfo, this.getContentDetailsHandler, this.eventsBusService, this.sharedPreferences)
+                .execute(importResponse_1.body);
+            this.contentUpdateSizeOnDeviceTimeoutRef.set(importContentContext.rootIdentifier ?
+                importContentContext.rootIdentifier : importContentContext.identifiers![0], ref);
+            this.eventsBusService.emit({
+                namespace: EventNamespace.CONTENT,
+                event: {
+                    type: ContentEventType.CONTENT_EXTRACT_COMPLETED,
+                    payload: {
+                        contentId: importContentContext.rootIdentifier ?
+                            importContentContext.rootIdentifier : importContentContext.identifiers![0]
+                    }
+                }
+            });
+            const response: Response = new Response();
+            const importResponse_3 = await new CreateContentImportManifest(this.dbService, this.deviceInfo, this.fileService).execute(importResponse_2.body);
+            const importResponse_4 = await new EcarCleanup(this.fileService).execute(importResponse_3.body);
+            const response_1: Response = new Response();
+            let importResponse_5: Response;
+            try {
+                await this.cleanupContent(importContentContext).toPromise();
+                response_1.body = importContentContext;
+                importResponse_5 = await Promise.resolve(response_1);
+            } catch {
+                importResponse_5 = await Promise.reject(response_1);
+            }
+            const importResponse_6 = await new GenerateImportShareTelemetry(this.telemetryService).execute(importResponse_5.body);
+            const importResponse_7 = await new GenerateInteractTelemetry(this.telemetryService).execute(importResponse_6.body, 'ContentImport-Success');
+            this.eventsBusService.emit({
+                namespace: EventNamespace.CONTENT,
+                event: {
+                    type: ContentEventType.IMPORT_COMPLETED,
+                    payload: {
+                        contentId: importContentContext.rootIdentifier ?
+                            importContentContext.rootIdentifier : importContentContext.identifiers![0]
+                    }
+                }
+            });
+            return importResponse_7.body.contentImportResponseList;
         }).catch((error) => {
             console.log('error', error);
-            return [{identifier: '', status: ContentImportStatus.NOT_FOUND}];
+            return [{ identifier: '', status: ContentImportStatus.NOT_FOUND }];
         }));
     }
 
@@ -580,8 +565,8 @@ export class ContentServiceImpl implements ContentService, DownloadCompleteDeleg
             }),
             map((contentResponse: RelevantContentResponse) => {
                 const response: RelevantContentResponsePlayer = {};
-                response.next = contentResponse.nextContent ? {content: contentResponse.nextContent!} : undefined;
-                response.prev = contentResponse.previousContent! ? {content: contentResponse.previousContent!} : undefined;
+                response.next = contentResponse.nextContent ? { content: contentResponse.nextContent! } : undefined;
+                response.prev = contentResponse.previousContent! ? { content: contentResponse.previousContent! } : undefined;
                 return response;
             })
         );
@@ -603,11 +588,11 @@ export class ContentServiceImpl implements ContentService, DownloadCompleteDeleg
             const mimeTypeFacetFilters = contentSearchCriteria.facetFilters.find(f => (f.name === 'mimeType'));
             if (mimeTypeFacetFilters) {
                 mimeTypeFacetFilters.values = mimeTypeFacetFilters.values
-                  .filter(v => v.apply)
-                  .reduce<FilterValue[]>((acc, v) => {
-                      acc = acc.concat((v['values'] as FilterValue[]).map(f => ({...f, apply: true})));
-                      return acc;
-                  }, []);
+                    .filter(v => v.apply)
+                    .reduce<FilterValue[]>((acc, v) => {
+                        acc = acc.concat((v['values'] as FilterValue[]).map(f => ({ ...f, apply: true })));
+                        return acc;
+                    }, []);
             }
         }
 
@@ -664,7 +649,7 @@ export class ContentServiceImpl implements ContentService, DownloadCompleteDeleg
     }
 
     cancelDownload(contentId: string): Observable<undefined> {
-        return this.downloadService.cancel({identifier: contentId});
+        return this.downloadService.cancel({ identifier: contentId });
     }
 
     setContentMarker(contentMarkerRequest: ContentMarkerRequest): Observable<boolean> {
@@ -699,7 +684,7 @@ export class ContentServiceImpl implements ContentService, DownloadCompleteDeleg
                                 `${ContentMarkerEntry.COLUMN_NAME_UID}= ? AND ${ContentMarkerEntry
                                     .COLUMN_NAME_CONTENT_IDENTIFIER}= ? AND ${ContentMarkerEntry.COLUMN_NAME_MARKER}= ?`,
                             selectionArgs: [contentMarkerRequest.uid, contentMarkerRequest.contentId,
-                                contentMarkerRequest.marker.valueOf().toString()],
+                            contentMarkerRequest.marker.valueOf().toString()],
                             modelJson: markerModel
                         }).pipe(
                             map(v => v > 0)
@@ -708,7 +693,7 @@ export class ContentServiceImpl implements ContentService, DownloadCompleteDeleg
                         return this.dbService.delete({
                             table: ContentMarkerEntry.TABLE_NAME,
                             selection: `${ContentMarkerEntry.COLUMN_NAME_UID} = ? AND ${ContentMarkerEntry.COLUMN_NAME_CONTENT_IDENTIFIER
-                            } = ? AND ${ContentMarkerEntry.COLUMN_NAME_MARKER} = ?`,
+                                } = ? AND ${ContentMarkerEntry.COLUMN_NAME_MARKER} = ?`,
                             selectionArgs: [contentMarkerRequest.uid, contentMarkerRequest.contentId, '' + contentMarkerRequest.marker]
                         }).pipe(
                             map(v => v!)
@@ -732,12 +717,12 @@ export class ContentServiceImpl implements ContentService, DownloadCompleteDeleg
             mergeMap(() =>
                 // TODO
                 // @ts-ignore
-                this.downloadService.cancel({identifier: request.identifier!}, false)
+                this.downloadService.cancel({ identifier: request.identifier! }, false)
             ),
             catchError(() =>
                 // TODO
                 // @ts-ignore
-                this.downloadService.cancel({identifier: request.identifier!}, false)
+                this.downloadService.cancel({ identifier: request.identifier! }, false)
             ),
             mapTo(undefined)
         );
@@ -768,10 +753,10 @@ export class ContentServiceImpl implements ContentService, DownloadCompleteDeleg
     }
 
     getQuestionList(questionIds: string[], parentId?): Observable<any> {
-        return this.getContentDetails({ 
+        return this.getContentDetails({
             contentId: parentId,
             objectType: 'QuestionSet'
-         }).pipe(
+        }).pipe(
             switchMap((content: Content) => {
                 if (content.isAvailableLocally && parentId) {
                     return this.questionSetFileReadHandler.getLocallyAvailableQuestion(questionIds, parentId);
@@ -789,14 +774,14 @@ export class ContentServiceImpl implements ContentService, DownloadCompleteDeleg
         return this.contentServiceDelegate.getQuestionSetHierarchy(data);
     }
 
-    getQuestionSetRead(contentId:string, params?:any) {
-        return this.contentServiceDelegate.getQuestionSetRead(contentId,params);
+    getQuestionSetRead(contentId: string, params?: any) {
+        return this.contentServiceDelegate.getQuestionSetRead(contentId, params);
     }
 
     async getQuestionSetChildren(questionSetId: string) {
-        try{
+        try {
             return await this.getChildQuestionSetHandler.handle(questionSetId);
-        } catch(e){
+        } catch (e) {
             return [];
         }
     }
@@ -816,7 +801,7 @@ export class ContentServiceImpl implements ContentService, DownloadCompleteDeleg
             };
             contentDeleteList.push(contentDeleteRequest);
         }
-        return this.deleteContent({contentDeleteList: contentDeleteList})
+        return this.deleteContent({ contentDeleteList: contentDeleteList })
             .pipe(
                 mapTo(undefined)
             );
@@ -840,7 +825,7 @@ export class ContentServiceImpl implements ContentService, DownloadCompleteDeleg
                     return of(undefined);
                 }
 
-                return this.deleteContent({contentDeleteList: [currentRequest]}).pipe(
+                return this.deleteContent({ contentDeleteList: [currentRequest] }).pipe(
                     mergeMap(() => this.contentDeleteRequestSet.remove(currentRequest)),
                     mapTo(undefined)
                 );
@@ -867,47 +852,46 @@ export class ContentServiceImpl implements ContentService, DownloadCompleteDeleg
         return this.container.get(CsInjectionTokens.CONTENT_SERVICE);
     }
 
-    downloadTranscriptFile(transcriptReq) {
-        const dataDirectory = window.device.platform.toLowerCase() === 'ios' ?
-         cordova.file.documentsDirectory : cordova.file.externalDataDirectory + ContentServiceImpl.DOWNLOAD_DIR_NAME;
-        return this.createTranscriptDir(transcriptReq, dataDirectory).then(() => {
-            const downloadRequest: EnqueueRequest = {
-                uri: transcriptReq.downloadUrl,
-                title: transcriptReq.fileName,
-                description: '',
-                mimeType: '',
-                visibleInDownloadsUi: true,
-                notificationVisibility: 1,
-                destinationInExternalPublicDir: {
-                    dirType: 'Download',
-                    subPath: transcriptReq.fileName
-                },
-                headers: [],
-                destinationUri: transcriptReq.destinationUrl
-            };
-            return this.downloadTranscript(downloadRequest).toPromise()
-            .then((sourceUrl) => {
-                if (sourceUrl && sourceUrl.path) {
-                    this.copyFile(sourceUrl.path.split(/\/(?=[^\/]+$)/)[0], dataDirectory.concat('/' + transcriptReq.identifier),
-                    transcriptReq.fileName).then(() => {
-                        this.deleteFolder(sourceUrl.path);
-                    });
-                    return sourceUrl.path;
-                }
-            });
-        });
+    async downloadTranscriptFile(transcriptReq) {
+        const platform = window.device.platform.toLowerCase();
+        const storagePath = platform === 'ios' ? FilePaths.DOCUMENTS : FilePaths.DATA;
+        let dataDirectory = await FilePathService.getFilePath(storagePath);
+        dataDirectory = platform === 'ios' ? dataDirectory : dataDirectory + ContentServiceImpl.DOWNLOAD_DIR_NAME;
+        await this.createTranscriptDir(transcriptReq, dataDirectory);
+        const downloadRequest: EnqueueRequest = {
+            uri: transcriptReq.downloadUrl,
+            title: transcriptReq.fileName,
+            description: '',
+            mimeType: '',
+            visibleInDownloadsUi: true,
+            notificationVisibility: 1,
+            destinationInExternalPublicDir: {
+                dirType: 'Download',
+                subPath: transcriptReq.fileName
+            },
+            headers: [],
+            destinationUri: transcriptReq.destinationUrl
+        };
+        const sourceUrl = await this.downloadTranscript(downloadRequest).toPromise();
+        if (sourceUrl && sourceUrl.path) {
+            this.copyFile(sourceUrl.path.split(/\/(?=[^\/]+$)/)[0], dataDirectory.concat('/' + transcriptReq.identifier),
+                transcriptReq.fileName).then(() => {
+                    this.deleteFolder(sourceUrl.path);
+                });
+            return sourceUrl.path;
+        }
     }
 
-    createTranscriptDir(req, dataDirectory) {
-        return this.fileService.exists(dataDirectory.concat('/' + req.identifier)).then((entry: Entry) => {
+    async createTranscriptDir(req, dataDirectory) {
+        try {
+            const entry = await this.fileService.exists(dataDirectory.concat('/' + req.identifier, false));
             return entry.nativeURL;
-            }).catch(() => {
-                 return this.fileService.createDir(dataDirectory, false).then((directoryEntry: DirectoryEntry) => {
-                    this.fileService.createDir(dataDirectory.concat('/' + req.identifier), false).then((directory) => {
-                        return directory.nativeURL;
-                    });
-                });
-            });
+        } catch {
+            const directoryEntry = await this.fileService.createDir(dataDirectory, false).catch(() => { throw new Error('Error creating directory'); });
+            await this.fileService.createDir(dataDirectory.concat('/' + req.identifier), false).then((directory) => {
+                return directory.nativeURL;
+            }).catch(() => { throw new Error('Error creating directory'); });
+        }
     }
 
     downloadTranscript(downloadRequest) {
@@ -926,7 +910,7 @@ export class ContentServiceImpl implements ContentService, DownloadCompleteDeleg
                     .pipe(
                         mergeMap(() => {
                             return new Observable((observer: Observer<EnqueuedEntry>) => {
-                                downloadManager.query({ids: [downloadId]}, (err, entries) => {
+                                downloadManager.query({ ids: [downloadId] }, (err, entries) => {
                                     if (err || (entries[0].status === 16)) {
                                         return observer.error(err || new Error('Unknown Error'));
                                     }
@@ -938,7 +922,7 @@ export class ContentServiceImpl implements ContentService, DownloadCompleteDeleg
                         take(1)
                     );
             }),
-            map((entry) => ({path: entry.localUri}))
+            map((entry) => ({ path: entry.localUri }))
         );
     }
 
@@ -946,7 +930,7 @@ export class ContentServiceImpl implements ContentService, DownloadCompleteDeleg
         return new Promise<boolean>((resolve, reject) => {
             sbutility.copyFile(sourcePath, destinationPath, fileName,
                 () => {
-                    resolve(true);
+                    resolve();
                 }, err => {
                     console.error(err);
                     resolve(err);
@@ -958,10 +942,9 @@ export class ContentServiceImpl implements ContentService, DownloadCompleteDeleg
         if (!deletedirectory) {
             return;
         }
-        let res;
         return new Promise<undefined>((resolve, reject) => {
             sbutility.rm(deletedirectory, '', () => {
-                resolve(res);
+                resolve();
             }, (e) => {
                 reject(e);
             });

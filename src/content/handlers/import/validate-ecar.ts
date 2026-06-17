@@ -29,15 +29,13 @@ export class ValidateEcar {
                 delete newData.content;
                 data = JSON.stringify(newData);
             }
-        } catch(err) {
-            console.log('err validating ecar',err)
-            data = await this.fileService.readAsText(importContext.tmpLocation!, FileName.MANIFEST.valueOf());
+        } catch {
+            data = await this.fileService.readAsText(importContext.tmpLocation!, FileName.MANIFEST.valueOf()).catch((e) => { throw new Error(e)});
         }
 
         if (!data) {
             response.errorMesg = ContentErrorCode.IMPORT_FAILED_MANIFEST_FILE_NOT_FOUND.valueOf();
-            await this.fileService.removeRecursively(importContext.tmpLocation!);
-            console.log('response in err',response)
+            await this.fileService.removeRecursively(importContext.tmpLocation!).catch((e) => { throw new Error(e)});
             throw response;
         }
 
@@ -45,13 +43,13 @@ export class ValidateEcar {
 
         if (manifestJson.ver === 1.0) {
             response.errorMesg = ContentErrorCode.IMPORT_FAILED_UNSUPPORTED_MANIFEST.valueOf();
-            await this.fileService.removeRecursively(importContext.tmpLocation!);
+            await this.fileService.removeRecursively(importContext.tmpLocation!).catch((e) => { throw new Error(e)});
             throw response;
         }
         const archive = manifestJson.archive;
         if (!archive.items) {
             response.errorMesg = ContentErrorCode.IMPORT_FAILED_NO_CONTENT_METADATA.valueOf();
-            await this.fileService.removeRecursively(importContext.tmpLocation!);
+            await this.fileService.removeRecursively(importContext.tmpLocation!).catch((e) => { throw new Error(e)});
             throw response;
         }
 

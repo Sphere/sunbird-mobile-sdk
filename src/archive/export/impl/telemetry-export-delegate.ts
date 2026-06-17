@@ -49,7 +49,7 @@ export class TelemetryExportDelegate implements ArchiveExportDelegate {
                     task: 'INITIALIZING'
                 });
 
-                await this.createWorkspace();
+                await this.createWorkspace().catch((e) => { throw new Error(e); });
 
                 const messageIds = await this.getMessageIds();
 
@@ -118,8 +118,8 @@ export class TelemetryExportDelegate implements ArchiveExportDelegate {
         this.workspaceSubPath = `${context.workspacePath}`;
     }
 
-    private async createWorkspace(): Promise<DirectoryEntry> {
-        return this.fileService.createDir(this.workspaceSubPath, false) as any;
+    private async createWorkspace(): Promise<any> {
+        return await this.fileService.createDir(this.workspaceSubPath, false);
     }
 
     private async getMessageIds(): Promise<string[]> {
@@ -152,7 +152,7 @@ export class TelemetryExportDelegate implements ArchiveExportDelegate {
             {
                 replace: true
             }
-        );
+        ).catch((e) => { throw new Error(e); });
 
         return {
             size: [NetworkQueueEntry.COLUMN_NAME_DATA].length,

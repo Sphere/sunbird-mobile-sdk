@@ -26,7 +26,7 @@ export class EcarBundle {
                     throw response;
                 });
         });
-        const metaData: Metadata = await this.fileService.getMetaData(exportContentContext.ecarFilePath!);
+        const metaData: Metadata = await this.fileService.getMetaData(exportContentContext.ecarFilePath!).catch((e) => { throw new Error(e)});
         exportContentContext.metadata[EcarBundle.FILE_SIZE] = metaData.size;
         response.body = exportContentContext;
         return response;

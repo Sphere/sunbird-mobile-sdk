@@ -9,33 +9,33 @@ import {
     State,
     Visibility
 } from '../..';
-import {SharedPreferences} from '../../../util/shared-preferences';
-import {UpdateSizeOnDevice} from './update-size-on-device';
-import {Response} from '../../../api';
-import {FileService} from '../../../util/file/def/file-service';
-import {DbService} from '../../../db';
-import {ContentUtil} from '../../util/content-util';
-import {GetContentDetailsHandler} from '../get-content-details-handler';
-import {ContentEntry} from '../../db/schema';
-import {ZipService} from '../../../util/zip/def/zip-service';
-import {AppConfig} from '../../../api/config/app-config';
-import {FileUtil} from '../../../util/file/util/file-util';
-import {DeviceInfo} from '../../../util/device';
-import {EventNamespace, EventsBusService} from '../../../events-bus';
-import dayjs from 'dayjs';
-import {ArrayUtil} from '../../../util/array-util';
+import { SharedPreferences } from '../../../util/shared-preferences';
+import { UpdateSizeOnDevice } from './update-size-on-device';
+import { Response } from '../../../api';
+import { FileService } from '../../../util/file/def/file-service';
+import { DbService } from '../../../db';
+import { ContentUtil } from '../../util/content-util';
+import { GetContentDetailsHandler } from '../get-content-details-handler';
+import { ContentEntry } from '../../db/schema';
+import { ZipService } from '../../../util/zip/def/zip-service';
+import { AppConfig } from '../../../api/config/app-config';
+import { FileUtil } from '../../../util/file/util/file-util';
+import { DeviceInfo } from '../../../util/device';
+import { EventNamespace, EventsBusService } from '../../../events-bus';
+import * as dayjs from 'dayjs';
+import { ArrayUtil } from '../../../util/array-util';
 import COLUMN_NAME_VISIBILITY = ContentEntry.COLUMN_NAME_VISIBILITY;
 
 export class ExtractPayloads {
 
     constructor(private fileService: FileService,
-                private zipService: ZipService,
-                private appConfig: AppConfig,
-                private dbService: DbService,
-                private deviceInfo: DeviceInfo,
-                private getContentDetailsHandler: GetContentDetailsHandler,
-                private eventsBusService: EventsBusService,
-                private sharedPreferences: SharedPreferences) {
+        private zipService: ZipService,
+        private appConfig: AppConfig,
+        private dbService: DbService,
+        private deviceInfo: DeviceInfo,
+        private getContentDetailsHandler: GetContentDetailsHandler,
+        private eventsBusService: EventsBusService,
+        private sharedPreferences: SharedPreferences) {
     }
 
     public async execute(importContext: ImportContentContext): Promise<[Response, NodeJS.Timeout]> {
@@ -70,12 +70,12 @@ export class ExtractPayloads {
         // Create all the directories for content.
         const destinationRootDir = ContentUtil.getContentRootDir(importContext.destinationFolder)
         let createdDirectories;
-        if(importContext.items![0].mimeType === MimeType.QUESTION_SET){
+        if (importContext.items![0].mimeType === MimeType.QUESTION_SET) {
 
             createdDirectories = await this.segregateQuestions(
                 destinationRootDir, JSON.parse(JSON.stringify(importContext.items))
             );
-        } else{
+        } else {
             createdDirectories = await this.createDirectories(destinationRootDir,
                 nonUnitContentIds);
         }
@@ -129,21 +129,19 @@ export class ExtractPayloads {
             }
             if (ContentUtil.isNotUnit(mimeType, visibility)) {
                 if (createdDirectories[identifier] && createdDirectories[identifier].path) {
-                    payloadDestination = (window.device.platform.toLowerCase() === "ios") ? createdDirectories[identifier].path!.concat("/"): createdDirectories[identifier].path;
+                    payloadDestination = (window.device.platform.toLowerCase() === "ios") ? createdDirectories[identifier].path!.concat("/") : createdDirectories[identifier].path;
                 } else {
-                    let payloadDirectory = (window.device.platform.toLowerCase() === "ios") ? 
-                        ContentUtil.getContentRootDir(importContext.destinationFolder).concat(identifier):
+                    let payloadDirectory = (window.device.platform.toLowerCase() === "ios") ?
+                        ContentUtil.getContentRootDir(importContext.destinationFolder).concat(identifier) :
                         ContentUtil.getContentRootDir(importContext.destinationFolder).concat('/', identifier);
                     const payloadDestinationDirectoryEntry: any = await this.fileService.createDir(payloadDirectory
-                                                , false);
+                        , false).catch(e => { throw e });
                     payloadDestination = payloadDestinationDirectoryEntry.nativeURL;
                 }
             }
 
             let isUnzippingSuccessful = false;
             let doesContentExist: boolean = ContentUtil.doesContentExist(existingContentModel, identifier, pkgVersion, false);
-            doesContentExist = false;
-        
             // If the content is exist then copy the old content data and add it into new content.
             if (doesContentExist && !(item.status === ContentStatus.DRAFT.valueOf())) {
                 if (existingContentModel![COLUMN_NAME_VISIBILITY] === Visibility.DEFAULT.valueOf()) {
@@ -152,7 +150,7 @@ export class ExtractPayloads {
             } else {
                 doesContentExist = false;
                 // let isUnzippingSuccessful = false;
-                if (artifactUrl) {
+                if (artifactUrl && !artifactUrl.startsWith('https:')) {
                     if (!ContentUtil.isInlineIdentity(contentDisposition, contentEncoding) && mimeType === MimeType.EPUB) {
                         try {
                             await this.copyAssets(importContext.tmpLocation!, artifactUrl, payloadDestination!);
@@ -165,8 +163,8 @@ export class ExtractPayloads {
                         (contentDisposition === ContentDisposition.INLINE.valueOf()
                             && contentEncoding === ContentEncoding.GZIP.valueOf())) { // Content with artifact without zip i.e. pfd, mp4
                         const payload = importContext.tmpLocation!.concat(artifactUrl);
-                        await new Promise<void>((resolve, reject) => {
-                            this.zipService.unzip(payload, {target: payloadDestination!}, () => {
+                        await new Promise((resolve, reject) => {
+                            this.zipService.unzip(payload, { target: payloadDestination! }, () => {
                                 isUnzippingSuccessful = true;
                                 resolve();
                             }, () => {
@@ -187,8 +185,8 @@ export class ExtractPayloads {
 
                 // Add or update the content_state
                 if (isUnzippingSuccessful
-                || this.shouldDownloadQuestionSet(importContext.items!, item)
-                || MimeType.COLLECTION.valueOf() === mimeType) {
+                    || this.shouldDownloadQuestionSet(importContext.items!, item)
+                    || MimeType.COLLECTION.valueOf() === mimeType) {
                     contentState = State.ARTIFACT_AVAILABLE.valueOf();
                 } else {
                     contentState = State.ONLY_SPINE.valueOf();
@@ -270,10 +268,11 @@ export class ExtractPayloads {
                     FileName.MANIFEST.valueOf(),
                     rootContentPath,
                     FileName.MANIFEST.valueOf());
-            } catch(e) {
-                console.log("Exception Raised During Import");
+            } catch (e) {
+                console.log("Exception Raised During Import")
+                throw e;
             }
-            
+
         }
 
         response.body = importContext;
@@ -307,8 +306,8 @@ export class ExtractPayloads {
     }
 
     async updateContentDB(insertNewContentModels, updateNewContentModels, updateSize?: boolean) {
-        insertNewContentModels = (insertNewContentModels && insertNewContentModels.length) ? this.filterQuestionSetContent(insertNewContentModels): insertNewContentModels;
-        updateNewContentModels = (updateNewContentModels && updateNewContentModels.length) ? this.filterQuestionSetContent(updateNewContentModels): updateNewContentModels;
+        insertNewContentModels = (insertNewContentModels && insertNewContentModels.length) ? this.filterQuestionSetContent(insertNewContentModels) : insertNewContentModels;
+        updateNewContentModels = (updateNewContentModels && updateNewContentModels.length) ? this.filterQuestionSetContent(updateNewContentModels) : updateNewContentModels;
         if (insertNewContentModels.length || updateNewContentModels.length) {
             this.dbService.beginTransaction();
             // Insert into DB
@@ -338,76 +337,36 @@ export class ExtractPayloads {
     }
 
     async copyAssets(tempLocationPath: string, asset: string, payloadDestinationPath: string, useSubDirectories?: boolean) {
-        console.log('tempLocationPath-', tempLocationPath);
-        console.log('asset-', asset);
-        console.log('payloadDestinationPath-', payloadDestinationPath);
-        console.log('useSubDirectories-', useSubDirectories);
-        console.log('FileUtil.getFileName(asset),-',  FileUtil.getFileName(asset));
         try {
-            if (asset && !(asset.startsWith("http://") || asset.startsWith("https://"))) {
+            if (asset) {
                 // const iconSrc = tempLocationPath.concat(asset);
                 // const iconDestination = payloadDestinationPath.concat(asset);
-                let folderContainingFile = asset.substring(0, asset.lastIndexOf('/'));
-
+                const folderContainingFile = asset.substring(0, asset.lastIndexOf('/'));
                 // TODO: Can optimize folder creation
                 if (!useSubDirectories) {
-                    let createRe = await this.fileService.createDir(payloadDestinationPath.concat(folderContainingFile), false);
-                    console.log('createRe-', createRe);
+                    await this.fileService.createDir(payloadDestinationPath.concat(folderContainingFile), false).catch(e => { throw e });
                 }
 
                 // * only in case of iOS ****
-                if(window.device.platform.toLowerCase() === "ios") {
+                if (window.device.platform.toLowerCase() === "ios") {
                     // * checking if file exist, then delete the file
                     await this.fileService.exists(payloadDestinationPath.concat('/', asset))
-                    .then(entry => {
-                        if (entry) {
-                            this.fileService.removeFile(payloadDestinationPath.concat('/', asset)).then();
-                        }
-                    })
-                    .catch(error => {
-                        console.log('Error =>', error);
-                    });
+                        .then(async entry => {
+                            if (entry) {
+                                await this.fileService.removeFile(payloadDestinationPath.concat('/', asset)).then().catch(e => { throw e });
+                            }
+                        })
+                        .catch(error => {
+                            console.log('Error =>', error);
+                            throw error;
+                        });
                 }
                 // If source icon is not available then copy assets is failing and throwing exception.
-                // copyFile(path: string, fileName: string, newPath: string, newFileName: string): Promise<Entry>;
-           
-                //tempLocationPath = tempLocationPath.replace('file://','');
-                //payloadDestinationPath = payloadDestinationPath.replace('file://','');
-                
-                  
-                // await this.fileService.copyFile(
-                //     tempLocationPath.concat(folderContainingFile), 
-                //     FileUtil.getFileName(asset),
-                //     payloadDestinationPath.concat(folderContainingFile), 
-                //     FileUtil.getFileName(asset)
-                // );
-                let newFileName = await FileUtil.getFileName(asset);
-                let pathExist:any = '';
-                try {
-                    pathExist = await this.fileService.exists(tempLocationPath.concat(newFileName));                    
-                } catch (error) {
-                    pathExist = '';
-                }
-                console.log('pathExist-', pathExist);
-                if(pathExist !== ''){
-                    await this.fileService.copyFile(
-                        tempLocationPath.concat(newFileName),
-                        newFileName,
-                        payloadDestinationPath.concat(folderContainingFile), 
-                        newFileName
-                    );
-                } else{
-                    await this.fileService.copyFile(
-                        tempLocationPath.concat(folderContainingFile), 
-                        FileUtil.getFileName(asset),
-                        payloadDestinationPath.concat(folderContainingFile), 
-                        FileUtil.getFileName(asset)
-                    );
-                }
-
+                await this.fileService.copyFile(tempLocationPath.concat(folderContainingFile), FileUtil.getFileName(asset),
+                    payloadDestinationPath.concat(folderContainingFile), FileUtil.getFileName(asset));
             }
         } catch (e) {
-            console.error('Cannot Copy Asset---000011---', e);
+            console.error('Cannot Copy Asset');
             throw e;
         }
     }
@@ -457,7 +416,7 @@ export class ExtractPayloads {
      *
      */
     private getReferenceCount(existingContent, visibility: string, isChildContent: boolean,
-                              updateIdentifiers?: { [identifier: string]: boolean }): number {
+        updateIdentifiers?: { [identifier: string]: boolean }): number {
         let refCount: number;
         if (existingContent) {
             refCount = existingContent[ContentEntry.COLUMN_NAME_REF_COUNT];
@@ -492,10 +451,10 @@ export class ExtractPayloads {
     }
 
     private constructContentDBModel(identifier, manifestVersion, localData,
-                                    mimeType, contentType, visibility, path,
-                                    refCount, contentState, audience, pragma, sizeOnDevice,
-                                    board, medium, grade,
-                                    dialcodes, childNodes, primaryCategory): ContentEntry.SchemaMap {
+        mimeType, contentType, visibility, path,
+        refCount, contentState, audience, pragma, sizeOnDevice,
+        board, medium, grade,
+        dialcodes, childNodes, primaryCategory): ContentEntry.SchemaMap {
         return {
             [ContentEntry.COLUMN_NAME_IDENTIFIER]: identifier,
             [ContentEntry.COLUMN_NAME_SERVER_DATA]: '',
@@ -522,7 +481,7 @@ export class ExtractPayloads {
 
     // TODO: move this method to file-service
     private async createDirectories(parentDirectoryPath: string,
-                                    listOfFolder: string[]): Promise<{ [key: string]: { path: string | undefined } }> {
+        listOfFolder: string[]): Promise<{ [key: string]: { path: string | undefined } }> {
         return new Promise<{ [key: string]: { path: string | undefined } }>((resolve, reject) => {
             parentDirectoryPath = (window.device.platform.toLowerCase() === "ios") ? parentDirectoryPath.concat('/') : parentDirectoryPath;
             sbutility.createDirectories(ContentUtil.getBasePath(parentDirectoryPath), listOfFolder,
@@ -535,8 +494,8 @@ export class ExtractPayloads {
         });
     }
 
-    filterQuestionSetContent(items){
-        const filterdItems = items.filter(i => (i.mimeType !==MimeType.QUESTION && i.mime_type !==MimeType.QUESTION));
+    filterQuestionSetContent(items) {
+        const filterdItems = items.filter(i => (i.mimeType !== MimeType.QUESTION && i.mime_type !== MimeType.QUESTION));
         return filterdItems
     }
 
@@ -575,8 +534,8 @@ export class ExtractPayloads {
         return createdDir;
     }
 
-    private shouldDownloadQuestionSet(contentItems, item){
-        if(item.mimeType === MimeType.QUESTION_SET && ContentUtil.readVisibility(item) === Visibility.DEFAULT.valueOf()){
+    private shouldDownloadQuestionSet(contentItems, item) {
+        if (item.mimeType === MimeType.QUESTION_SET && ContentUtil.readVisibility(item) === Visibility.DEFAULT.valueOf()) {
             return true;
         }
         return this.checkParentQustionSet(contentItems, item)
@@ -584,15 +543,15 @@ export class ExtractPayloads {
 
     // recursive function
     private checkParentQustionSet(contentItems, content) {
-        if(!content || !content.parent){
+        if (!content || !content.parent) {
             return false;
         }
         const parentContent = contentItems.find(i => (i.identifier === content.parent));
-        if(!parentContent || parentContent.mimeType !== MimeType.QUESTION_SET){
+        if (!parentContent || parentContent.mimeType !== MimeType.QUESTION_SET) {
             return false;
-        } else if(parentContent.mimeType === MimeType.QUESTION_SET && 
-            ContentUtil.readVisibility(parentContent) === Visibility.DEFAULT.valueOf()){
-                return true;
+        } else if (parentContent.mimeType === MimeType.QUESTION_SET &&
+            ContentUtil.readVisibility(parentContent) === Visibility.DEFAULT.valueOf()) {
+            return true;
         }
         return this.checkParentQustionSet(contentItems, parentContent)
     }

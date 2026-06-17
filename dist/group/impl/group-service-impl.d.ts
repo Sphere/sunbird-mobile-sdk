@@ -1,0 +1,34 @@
+import { AddActivitiesRequest, AddMembersRequest, DeleteByIdRequest, GetByIdRequest, GroupActivityService, GroupAddActivitiesResponse, GroupAddMembersResponse, GroupCreateRequest, GroupCreateResponse, GroupDeleteResponse, GroupRemoveActivitiesResponse, GroupRemoveMembersResponse, GroupSearchCriteria, GroupSearchResponse, GroupService, GroupSupportedActivitiesFormField, GroupUpdateActivitiesResponse, GroupUpdateMembersResponse, GroupUpdateResponse, RemoveActivitiesRequest, RemoveMembersRequest, UpdateActivitiesRequest, UpdateByIdRequest, UpdateMembersRequest } from '..';
+import { Observable } from 'rxjs';
+import { Group } from '../def/models';
+import { Form } from '../../form/def/models';
+import { Container } from 'inversify';
+import { CsGroupUpdateGroupGuidelinesRequest, CsGroupUpdateGroupGuidelinesResponse } from '@project-sunbird/client-services/services/group';
+import { CachedItemStore } from '../../key-value-store';
+import { ActivateAndDeactivateByIdRequest } from '../def/requests';
+import { GroupReactivateResponse, GroupSuspendResponse } from '../def/responses';
+export declare class GroupServiceImpl implements GroupService {
+    private container;
+    private cachedItemStore;
+    private static GROUP_LOCAL_KEY;
+    private static GROUP_SEARCH_LOCAL_KEY;
+    private _groupActivityService;
+    get activityService(): GroupActivityService;
+    constructor(container: Container, cachedItemStore: CachedItemStore);
+    private get groupServiceDelegate();
+    create(request: GroupCreateRequest): Observable<GroupCreateResponse>;
+    getById(request: GetByIdRequest): Observable<Group>;
+    search({ request, from }: GroupSearchCriteria): Observable<GroupSearchResponse[]>;
+    updateById(request: UpdateByIdRequest): Observable<GroupUpdateResponse>;
+    deleteById(request: DeleteByIdRequest): Observable<GroupDeleteResponse>;
+    addMembers(request: AddMembersRequest): Observable<GroupAddMembersResponse>;
+    updateMembers(request: UpdateMembersRequest): Observable<GroupUpdateMembersResponse>;
+    removeMembers(request: RemoveMembersRequest): Observable<GroupRemoveMembersResponse>;
+    addActivities(request: AddActivitiesRequest): Observable<GroupAddActivitiesResponse>;
+    updateActivities(request: UpdateActivitiesRequest): Observable<GroupUpdateActivitiesResponse>;
+    removeActivities(request: RemoveActivitiesRequest): Observable<GroupRemoveActivitiesResponse>;
+    getSupportedActivities(): Observable<Form<GroupSupportedActivitiesFormField>>;
+    suspendById(request: ActivateAndDeactivateByIdRequest): Observable<GroupSuspendResponse>;
+    reactivateById(request: ActivateAndDeactivateByIdRequest): Observable<GroupReactivateResponse>;
+    updateGroupGuidelines(request: CsGroupUpdateGroupGuidelinesRequest): Observable<CsGroupUpdateGroupGuidelinesResponse>;
+}

@@ -68,7 +68,7 @@ export class NativeCustomBrowserSessionProvider implements SessionProvider {
         return dsl.launchCustomTab({
             host: url.origin,
             path: url.pathname,
-            params: qs.parse(url.searchParams.toString(), {ignoreQueryPrefix: true}),
+            params: qs.parse(url.searchParams.toString(), {ignoreQueryPrefix: true}) as any,
             extraParams: this.customWebViewConfig.get('extraParam')
         }).then(() =>
             dsl.success()

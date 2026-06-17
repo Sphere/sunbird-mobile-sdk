@@ -9,10 +9,10 @@ export class CreateTempLoc {
     constructor(private fileService: FileService) {
     }
 
-    execute(exportContext: ExportContentContext): Promise<Response> {
+    async execute(exportContext: ExportContentContext): Promise<Response> {
         const response: Response = new Response();
-        return this.fileService.createDir(exportContext.tmpLocationPath!.concat(UniqueId.generateUniqueId()), false)
-            .then((directoryEntry: DirectoryEntry) => {
+        return await this.fileService.createDir(exportContext.tmpLocationPath!.concat(UniqueId.generateUniqueId()), false)
+            .then((directoryEntry: any) => {
                 exportContext.tmpLocationPath = directoryEntry.nativeURL;
                 response.body = exportContext;
                 return Promise.resolve(response);
