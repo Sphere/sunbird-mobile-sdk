@@ -1,4 +1,3 @@
-import { FileInfo } from '@capacitor/filesystem';
 import { DirectoryEntry, Entry, Flags, IWriteOptions, Metadata } from '../index';
 
 export interface FileService {
@@ -18,7 +17,7 @@ export interface FileService {
 
     createDir(path: string, replace: boolean): Promise<{ isFile: boolean, isDirectory: boolean, name: string, fullPath: string, nativeURL: string }>;
 
-    listDir(directoryPath: string): Promise<{ isFile: boolean; isDirectory: boolean; name: FileInfo; fullPath: string; filesystem: string; nativeURL: string; remove?: () => Promise<void>; }[]>;
+    listDir(directoryPath: string): Promise<{ isFile: boolean; isDirectory: boolean; name: string; fullPath: string; filesystem: string; nativeURL: string; remove?: () => Promise<void>; }[]>;
 
     removeDir(path: string, dirName: string): Promise<{ success: boolean }>;
 

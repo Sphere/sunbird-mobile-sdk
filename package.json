@@ -44,6 +44,8 @@
   },
   "devDependencies": {
     "@project-sunbird/client-services": "7.0.6",
+    "@capacitor/filesystem": "5.2.2",
+    "@capacitor/core": "5.7.8",
     "@types/jest": "^25.2.3",
     "@types/node": "12.0.2",
     "@types/node-fetch": "2.5.4",

@@ -927,10 +927,10 @@ export class ContentServiceImpl implements ContentService, DownloadCompleteDeleg
     }
 
     private async copyFile(sourcePath: string, destinationPath: string, fileName: string): Promise<boolean> {
-        return new Promise<boolean>((resolve, reject) => {
+        return new Promise<boolean>((resolve: (value: boolean | PromiseLike<boolean>) => void, reject) => {
             sbutility.copyFile(sourcePath, destinationPath, fileName,
                 () => {
-                    resolve();
+                    resolve(true);
                 }, err => {
                     console.error(err);
                     resolve(err);
@@ -942,9 +942,9 @@ export class ContentServiceImpl implements ContentService, DownloadCompleteDeleg
         if (!deletedirectory) {
             return;
         }
-        return new Promise<undefined>((resolve, reject) => {
+        return new Promise<undefined>((resolve: (value: undefined) => void, reject) => {
             sbutility.rm(deletedirectory, '', () => {
-                resolve();
+                resolve(undefined);
             }, (e) => {
                 reject(e);
             });

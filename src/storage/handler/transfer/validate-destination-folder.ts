@@ -40,9 +40,9 @@ export class ValidateDestinationFolder {
     }
 
     private async canWrite(directory: string): Promise<undefined> {
-        return new Promise<undefined>((resolve, reject) => {
+        return new Promise<undefined>((resolve: (value: undefined) => void, reject) => {
             sbutility.canWrite(directory, () => {
-                resolve();
+                resolve(undefined);
             }, (e) => {
                 reject(e);
             });
