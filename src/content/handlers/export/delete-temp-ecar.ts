@@ -10,7 +10,7 @@ export class DeleteTempEcar {
 
     public async execute(exportContentContext: ExportContentContext): Promise<Response> {
         const response: Response = new Response();
-        return this.fileService.removeRecursively(exportContentContext.tmpLocationPath!)
+        return await this.fileService.removeRecursively(exportContentContext.tmpLocationPath!)
             .then(() => {
                 response.body = exportContentContext;
                 return response;

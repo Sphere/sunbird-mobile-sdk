@@ -1,10 +1,11 @@
-import {ApiRequestHandler, ApiService, HttpRequestType, Request} from '../../api';
-import {FormRequest, FormServiceConfig} from '..';
-import {from, Observable} from 'rxjs';
-import {CachedItemRequestSourceFrom, CachedItemStore} from '../../key-value-store';
-import {FileService} from '../../util/file/def/file-service';
-import {Path} from '../../util/file/util/path';
-import {map} from 'rxjs/operators';
+import { ApiRequestHandler, ApiService, HttpRequestType, Request } from '../../api';
+import { FormRequest, FormServiceConfig } from '..';
+import { defer, from, Observable } from 'rxjs';
+import { CachedItemRequestSourceFrom, CachedItemStore } from '../../key-value-store';
+import { FileService } from '../../util/file/def/file-service';
+import { Path } from '../../util/file/util/path';
+import { catchError, map, switchMap } from 'rxjs/operators';
+import { throwError as rxjsThrowError } from 'rxjs';
 
 export class GetFormHandler implements ApiRequestHandler<FormRequest, { [key: string]: {} }> {
     private readonly FORM_FILE_KEY_PREFIX = 'form-';
@@ -55,9 +56,9 @@ export class GetFormHandler implements ApiRequestHandler<FormRequest, { [key: st
             .withHeaders({
                 'X-Platform-Id': window.device.platform
             })
-            .withBody({request})
+            .withBody({ request })
             .build();
-        return this.apiService.fetch <{ result: { [key: string]: {} } }>(apiRequest)
+        return this.apiService.fetch<{ result: { [key: string]: {} } }>(apiRequest)
             .pipe(
                 map((success) => {
                     return success.body.result;
@@ -66,14 +67,27 @@ export class GetFormHandler implements ApiRequestHandler<FormRequest, { [key: st
     }
 
     private fetchFromFile(request: FormRequest): Observable<{ [key: string]: {} }> {
-        const dir = Path.getAssetPath() + this.formServiceConfig.formConfigDirPath;
-        const file = this.FORM_FILE_KEY_PREFIX + GetFormHandler.getIdForRequest(request) + '.json';
+        return defer(() => Path.getAssetPath()).pipe(
+            switchMap((assetPath: string) => {
+                const dir = assetPath + this.formServiceConfig.formConfigDirPath;
+                const file = this.FORM_FILE_KEY_PREFIX + GetFormHandler.getIdForRequest(request) + '.json';
 
-        return from(this.fileService.readFileFromAssets(dir.concat('/', file))).pipe(
-            map((filecontent: string) => {
-                const result = JSON.parse(filecontent);
-                return (result.result);
+                const filePath = dir + '/' + file;
+                return from(this.fileService.readFileFromAssets(filePath)).pipe(
+                    map((fileContent: string) => {
+                        const result = JSON.parse(fileContent);
+                        return result.result;
+                    })
+                );
+            }),
+            catchError(error => {
+                console.error('Error fetching form from file:', error);
+                return throwError(error);
             })
         );
     }
+}
+
+function throwError(error: unknown): Observable<{ [key: string]: {}; }> {
+    return rxjsThrowError(error);
 }

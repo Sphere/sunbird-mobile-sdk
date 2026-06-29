@@ -310,6 +310,11 @@ export class SunbirdSdk {
                 this._container.bind<SharedPreferences>(InjectionTokens.SHARED_PREFERENCES)
                     .to(SharedPreferencesLocalStorage).inSingletonScope();
                 break;
+            case 'capacitor':
+                // Placeholder: replaced with SharedPreferencesCapacitor in the SharedPreferences migration phase.
+                this._container.bind<SharedPreferences>(InjectionTokens.SHARED_PREFERENCES)
+                    .to(SharedPreferencesLocalStorage).inSingletonScope();
+                break;
             default:
                 throw new Error('FATAL_ERROR: Invalid platform');
         }
@@ -406,7 +411,9 @@ export class SunbirdSdk {
 
         await CsModule.instance.init({
                 core: {
-                    httpAdapter: sdkConfig.platform === 'web' ? 'HttpClientBrowserAdapter' : 'HttpClientCordovaAdapter',
+                    httpAdapter: (sdkConfig.platform === 'web' || sdkConfig.platform === 'capacitor')
+                        ? 'HttpClientBrowserAdapter'
+                        : 'HttpClientCordovaAdapter',
                     global: {
                         channelId: sdkConfig.apiConfig.api_authentication.channelId,
                         producerId: sdkConfig.apiConfig.api_authentication.producerId,

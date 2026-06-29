@@ -48,8 +48,8 @@ export class DuplicateContentCheck {
         return this.dbService.execute(ContentUtil.getFindAllContentsQuery()).toPromise();
     }
 
-    private getPkgVersionFromFile(destinationContentRootDir: string, contentIdentifier: string): Promise<number> {
-        return this.fileService.readAsText(
+    private async getPkgVersionFromFile(destinationContentRootDir: string, contentIdentifier: string): Promise<number> {
+        return await this.fileService.readAsText(
             destinationContentRootDir.concat(contentIdentifier),
             FileName.MANIFEST.valueOf()
         ).then((manifestStringified) => {

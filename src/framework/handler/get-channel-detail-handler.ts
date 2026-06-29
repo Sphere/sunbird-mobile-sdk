@@ -1,10 +1,10 @@
-import {CachedItemRequestSourceFrom, CachedItemStore} from '../../key-value-store';
-import {FileService} from '../../util/file/def/file-service';
-import {Path} from '../../util/file/util/path';
-import {Channel, ChannelDetailsRequest, FrameworkServiceConfig} from '..';
-import {ApiRequestHandler, ApiService, HttpRequestType, Request} from '../../api';
-import {from, Observable} from 'rxjs';
-import {map} from 'rxjs/operators';
+import { CachedItemRequestSourceFrom, CachedItemStore } from '../../key-value-store';
+import { FileService } from '../../util/file/def/file-service';
+import { Path } from '../../util/file/util/path';
+import { Channel, ChannelDetailsRequest, FrameworkServiceConfig } from '..';
+import { ApiRequestHandler, ApiService, HttpRequestType, Request } from '../../api';
+import { defer, from, Observable, throwError } from 'rxjs';
+import { catchError, map, switchMap } from 'rxjs/operators';
 
 
 export class GetChannelDetailsHandler implements ApiRequestHandler<ChannelDetailsRequest, Channel> {
@@ -14,9 +14,9 @@ export class GetChannelDetailsHandler implements ApiRequestHandler<ChannelDetail
 
 
     constructor(private apiService: ApiService,
-                private frameworkServiceConfig: FrameworkServiceConfig,
-                private fileService: FileService,
-                private cachedItemStore: CachedItemStore) {
+        private frameworkServiceConfig: FrameworkServiceConfig,
+        private fileService: FileService,
+        private cachedItemStore: CachedItemStore) {
     }
 
     handle(request: ChannelDetailsRequest): Observable<Channel> {
@@ -51,13 +51,21 @@ export class GetChannelDetailsHandler implements ApiRequestHandler<ChannelDetail
     }
 
     private fetchFromFile(request: ChannelDetailsRequest): Observable<Channel> {
-        const dir = Path.getAssetPath() + this.frameworkServiceConfig.channelConfigDirPath;
-        const file = this.CHANNEL_FILE_KEY_PREFIX + request.channelId + '.json';
-
-        return from(this.fileService.readFileFromAssets(dir.concat('/', file))).pipe(
-            map((filecontent: string) => {
-                const result = JSON.parse(filecontent);
-                return (result.result.channel);
+        return defer(() => Path.getAssetPath()).pipe(
+            switchMap((assetPath: string) => {
+                const dir = assetPath + this.frameworkServiceConfig.channelConfigDirPath;
+                const file = this.CHANNEL_FILE_KEY_PREFIX + request.channelId + '.json';
+                const filePath = dir + '/' + file;
+                return from(this.fileService.readFileFromAssets(filePath)).pipe(
+                    map((filecontent: string) => {
+                        const result = JSON.parse(filecontent);
+                        return (result.result.channel);
+                    })
+                );
+            }),
+            catchError(error => {
+                console.error('Error fetching form from file:', error);
+                return throwError(error);
             })
         );
     }

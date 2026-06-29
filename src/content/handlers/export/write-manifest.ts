@@ -14,14 +14,14 @@ export class WriteManifest {
     execute(exportContentContext: ExportContentContext): Promise<Response> {
         const response: Response = new Response();
         return this.deviceInfo.getAvailableInternalMemorySize().toPromise()
-            .then((deviceUsableSpace) => {
+            .then(async (deviceUsableSpace) => {
                 const usableSpace = Number(deviceUsableSpace);
                 if (usableSpace > 0 && usableSpace < (1024 * 1024)) {
                     response.errorMesg = ContentErrorCode.EXPORT_FAILED_MEMORY_NOT_SUFFICIENT;
                     throw response;
                 }
 
-                return this.fileService.writeFile(exportContentContext.tmpLocationPath!,
+                return await this.fileService.writeFile(exportContentContext.tmpLocationPath!,
                     FileName.MANIFEST.valueOf(),
                     JSON.stringify(exportContentContext.manifest),
                     {replace: true});

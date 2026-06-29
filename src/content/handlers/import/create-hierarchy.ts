@@ -18,7 +18,7 @@ export class CreateHierarchy {
     }
 
     public async execute(importContentContext: ImportContentContext): Promise<Response> {
-        const data = await this.fileService.readAsText(importContentContext.tmpLocation!, FileName.MANIFEST.valueOf());
+        const data = await this.fileService.readAsText(importContentContext.tmpLocation!, FileName.MANIFEST.valueOf()).catch((e) => { throw new Error(e)});
         const manifestJson = JSON.parse(data);
         const archive = manifestJson.archive;
         const items = archive.items;
@@ -46,7 +46,7 @@ export class CreateHierarchy {
         await this.fileService.writeFile(ContentUtil.getBasePath(contentInDb[0][COLUMN_NAME_PATH]!),
             this.HIERARCHY_FILE_NAME,
             JSON.stringify(rootContent),
-            {replace: true});
+            {replace: true}).catch((e) => { throw new Error(e)});
 
         const response: Response = new Response();
         response.body = importContentContext;

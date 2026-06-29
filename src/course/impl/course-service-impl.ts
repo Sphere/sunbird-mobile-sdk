@@ -58,6 +58,8 @@ import {CourseCertificateManager} from '../def/course-certificate-manager';
 import {CourseCertificateManagerImpl} from './course-certificate-manager-impl';
 import {UpdateContentStateResponse} from '../def/update-content-state-response';
 import {UpdateCourseContentStateRequest} from '../def/update-course-content-state-request';
+import { FilePaths } from '../../services/file-path/file-path.enum';
+import { FilePathService } from '../../services/file-path/file-path.service';
 
 @injectable()
 export class CourseServiceImpl implements CourseService {
@@ -258,7 +260,9 @@ export class CourseServiceImpl implements CourseService {
             const activeProfile = (await this.profileService.getActiveProfileSession().toPromise());
             const userId = activeProfile.managedSession ? activeProfile.managedSession.uid : activeProfile.uid;
 
-            const folderPath = (window.device.platform.toLowerCase() === 'ios') ? cordova.file.documentsDirectory : cordova.file.externalRootDirectory;
+            const platform = window.device.platform.toLowerCase();
+            const storagePath = platform === 'ios' ? FilePaths.DOCUMENTS : FilePaths.EXTERNAL_STORAGE;
+            const folderPath = await FilePathService.getFilePath(storagePath);
             const filePath = `${folderPath}Download/${request.certificate.name}_${request.courseId}_${userId}.pdf`;
             return {userId};
         }).pipe(

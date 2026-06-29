@@ -35,6 +35,8 @@ Thumbs.db
 UserInterfaceState.xcuserstate
 
 sunbird-sdk-*.tgz
+*.zip
+.~lock.*
 /buildConfig/build.json
 /buildConfig/gk.jks
 /buildConfig/secret.gradle

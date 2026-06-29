@@ -87,7 +87,7 @@ export class TelemetryImportDelegate implements ArchiveImportDelegate {
   }
 
   private async processBatch(item: TelemetryArchivePackageMeta) {
-    return this.fileService.readAsBinaryString(this.workspaceSubPath, item.file).then((content) => {
+    return await this.fileService.readAsBinaryString(this.workspaceSubPath, item.file).then((content) => {
       this.networkQueue.enqueue(new NetworkRequestHandler(this.sdkConfig).generateNetworkQueueRequest(
         NetworkQueueType.TELEMETRY, content, item.mid, item.eventsCount, false), false).toPromise();
     });

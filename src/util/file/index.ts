@@ -317,5 +317,5 @@ export enum LocalFileSystem {
 export interface IWriteOptions {
     replace?: boolean;
     append?: boolean;
-    truncate?: number; // if present, number of bytes to truncate file to before writing
+    truncate?: number;
 }

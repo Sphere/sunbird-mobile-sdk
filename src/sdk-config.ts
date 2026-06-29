@@ -19,7 +19,7 @@ import {DeviceRegisterConfig} from './device-register';
 import { CertificateServiceConfig } from './certificate/config/certificate-service-config';
 
 export interface SdkConfig {
-    platform: 'cordova' | 'web';
+    platform: 'cordova' | 'web' | 'capacitor';
     apiConfig: ApiConfig;
     dbConfig: DbConfig;
     deviceRegisterConfig: DeviceRegisterConfig;

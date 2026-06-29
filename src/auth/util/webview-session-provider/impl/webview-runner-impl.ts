@@ -7,7 +7,7 @@ import { take, mapTo } from 'rxjs/operators';
 
 export class WebviewRunnerImpl implements WebviewRunner {
     private extras: {[key: string]: string} = {};
-    private captured: {[key: string]: string} = {};
+    private captured: {[key: string]: string | any} = {};
     private inAppBrowser?: {
         ref: InAppBrowserSession;
         listeners: {

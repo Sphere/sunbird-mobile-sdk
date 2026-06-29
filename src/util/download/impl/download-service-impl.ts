@@ -7,24 +7,26 @@ import {
     DownloadStatus,
     TrackDownloadRequest
 } from '..';
-import {BehaviorSubject, defer, EMPTY, from, iif, interval, Observable, of, zip} from 'rxjs';
-import {SdkServiceOnInitDelegate} from '../../../sdk-service-on-init-delegate';
-import {EventNamespace, EventsBusService} from '../../../events-bus';
-import {SharedPreferences} from '../../shared-preferences';
+import { BehaviorSubject, defer, EMPTY, from, iif, interval, Observable, of, zip } from 'rxjs';
+import { SdkServiceOnInitDelegate } from '../../../sdk-service-on-init-delegate';
+import { EventNamespace, EventsBusService } from '../../../events-bus';
+import { SharedPreferences } from '../../shared-preferences';
 import Set from 'typescript-collections/dist/lib/Set';
 import * as downloadManagerInstance from 'cordova-plugin-android-downloadmanager';
-import {DownloadCompleteDelegate} from '../def/download-complete-delegate';
-import {DownloadKeys} from '../../../preference-keys';
-import {TelemetryLogger} from '../../../telemetry/util/telemetry-logger';
-import {InteractSubType, InteractType} from '../../../telemetry';
-import {SharedPreferencesSetCollection} from '../../shared-preferences/def/shared-preferences-set-collection';
-import {SharedPreferencesSetCollectionImpl} from '../../shared-preferences/impl/shared-preferences-set-collection-impl';
-import {inject, injectable} from 'inversify';
-import {InjectionTokens} from '../../../injection-tokens';
-import {catchError, concatMapTo, distinctUntilChanged, mapTo, mergeMap, switchMap, take, tap, map} from 'rxjs/operators';
-import {ContentDeleteListener} from '../../../content/def/content-delete-listener';
-import {DownloadTracking} from '../def/response';
+import { DownloadCompleteDelegate } from '../def/download-complete-delegate';
+import { DownloadKeys } from '../../../preference-keys';
+import { TelemetryLogger } from '../../../telemetry/util/telemetry-logger';
+import { InteractSubType, InteractType } from '../../../telemetry';
+import { SharedPreferencesSetCollection } from '../../shared-preferences/def/shared-preferences-set-collection';
+import { SharedPreferencesSetCollectionImpl } from '../../shared-preferences/impl/shared-preferences-set-collection-impl';
+import { inject, injectable } from 'inversify';
+import { InjectionTokens } from '../../../injection-tokens';
+import { catchError, concatMapTo, distinctUntilChanged, mapTo, mergeMap, switchMap, take, tap, map } from 'rxjs/operators';
+import { ContentDeleteListener } from '../../../content/def/content-delete-listener';
+import { DownloadTracking } from '../def/response';
 import { ContentUtil } from '../../../content/util/content-util';
+import { FilePaths } from '../../../services/file-path/file-path.enum';
+import { FilePathService } from '../../../services/file-path/file-path.service';
 
 @injectable()
 export class DownloadServiceImpl implements DownloadService, SdkServiceOnInitDelegate, ContentDeleteListener {
@@ -38,7 +40,7 @@ export class DownloadServiceImpl implements DownloadService, SdkServiceOnInitDel
     private completedDownloadRequestsCache: Set<DownloadRequest> = new Set<DownloadRequest>((r) => r.identifier);
 
     constructor(@inject(InjectionTokens.EVENTS_BUS_SERVICE) private eventsBusService: EventsBusService,
-                @inject(InjectionTokens.SHARED_PREFERENCES) private sharedPreferences: SharedPreferences) {
+        @inject(InjectionTokens.SHARED_PREFERENCES) private sharedPreferences: SharedPreferences) {
         window['downloadManager'] = downloadManagerInstance;
 
         this.sharedPreferencesSetCollection = new SharedPreferencesSetCollectionImpl(
@@ -75,7 +77,7 @@ export class DownloadServiceImpl implements DownloadService, SdkServiceOnInitDel
             id: 'ContentDetail',
             objId: downloadRequest.identifier,
             objType: downloadRequest['contentMeta'] && downloadRequest['contentMeta']['primaryCategory'] ?
-            ContentUtil.readPrimaryCategoryServer(downloadRequest['contentMeta']) : 'Content',
+                ContentUtil.readPrimaryCategoryServer(downloadRequest['contentMeta']) : 'Content',
             objVer: downloadRequest['contentMeta'] && downloadRequest['contentMeta']['pkgVersion'] ?
                 downloadRequest['contentMeta']['pkgVersion'] : '',
             correlationData: downloadRequest['correlationData'] || []
@@ -93,7 +95,7 @@ export class DownloadServiceImpl implements DownloadService, SdkServiceOnInitDel
             id: 'ContentDetail',
             objId: downloadRequest.identifier,
             objType: downloadRequest['contentMeta'] && downloadRequest['contentMeta']['primaryCategory'] ?
-            ContentUtil.readPrimaryCategoryServer(downloadRequest['contentMeta']) : 'Content',
+                ContentUtil.readPrimaryCategoryServer(downloadRequest['contentMeta']) : 'Content',
             objVer: downloadRequest['contentMeta'] && downloadRequest['contentMeta']['pkgVersion'] ?
                 downloadRequest['contentMeta']['pkgVersion'] : '',
             correlationData: downloadRequest['correlationData'] || []
@@ -103,12 +105,12 @@ export class DownloadServiceImpl implements DownloadService, SdkServiceOnInitDel
     }
 
     onInit(): Observable<undefined> {
-            return this.switchToNextDownloadRequest()
-                .pipe(
-                    mergeMap(() => {
-                            return this.listenForDownloadProgressChanges();
-                    })
-                );
+        return this.switchToNextDownloadRequest()
+            .pipe(
+                mergeMap(() => {
+                    return this.listenForDownloadProgressChanges();
+                })
+            );
     }
 
     download(downloadRequests: DownloadRequest[]): Observable<undefined> {
@@ -236,12 +238,14 @@ export class DownloadServiceImpl implements DownloadService, SdkServiceOnInitDel
                             observer.next(id);
                         });
                     }).pipe(
-                        tap((downloadId) => {
-                            let dataDirectory = window.device.platform.toLowerCase() === "ios" ? cordova.file.documentsDirectory : cordova.file.externalDataDirectory
+                        tap(async (downloadId) => {
+                            const platform =  window.device.platform.toLowerCase();
+                            const storagePath = platform === 'ios' ? FilePaths.DOCUMENTS : FilePaths.EXTERNAL;
+                            const dataDirectory = await FilePathService.getFilePath(storagePath);
                             anyDownloadRequest.downloadedFilePath = dataDirectory +
-                            DownloadServiceImpl.DOWNLOAD_DIR_NAME + '/' + anyDownloadRequest.filename;
+                                DownloadServiceImpl.DOWNLOAD_DIR_NAME + '/' + anyDownloadRequest.filename;
                             anyDownloadRequest.downloadId = downloadId;
-                            this.currentDownloadRequest$.next(anyDownloadRequest);                           
+                            this.currentDownloadRequest$.next(anyDownloadRequest);
                         }),
                         tap(async () => await DownloadServiceImpl.generateDownloadStartTelemetry(anyDownloadRequest!)),
                         mapTo(undefined),
@@ -342,7 +346,7 @@ export class DownloadServiceImpl implements DownloadService, SdkServiceOnInitDel
 
     private getDownloadProgress(downloadRequest: DownloadRequest): Observable<DownloadProgress> {
         return new Observable((observer) => {
-            downloadManager.query({ids: [downloadRequest.downloadId!]}, (err, entries) => {
+            downloadManager.query({ ids: [downloadRequest.downloadId!] }, (err, entries) => {
                 if (err) {
                     observer.next({
                         type: DownloadEventType.PROGRESS,
@@ -357,7 +361,7 @@ export class DownloadServiceImpl implements DownloadService, SdkServiceOnInitDel
                     } as DownloadProgress);
                     observer.complete();
 
-                    this.cancel({identifier: downloadRequest.identifier}).toPromise();
+                    this.cancel({ identifier: downloadRequest.identifier }).toPromise();
 
                     return;
                 }

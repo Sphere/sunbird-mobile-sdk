@@ -13,8 +13,9 @@ export class QuestionSetFileReadHandler{
         const path = this.storageService.getStorageDestinationDirectoryPath();
         let questionList: any = [];
         questionIds.forEach(async id => {
-            const textData = this.fileService.readAsText((window.device.platform.toLowerCase() === "ios") 
-                            ? `${path}/content/${parentId}/${id}` : `${path}content/${parentId}/${id}`, 'index.json');
+            const textData = await this.fileService.readAsText((window.device.platform.toLowerCase() === "ios") 
+                            ? `${path}/content/${parentId}/${id}` : `${path}content/${parentId}/${id}`, 'index.json')
+                            .catch(e => { throw new Error(e) });
             questionList.push(textData);
         });
         return from(Promise.all(questionList)).pipe(

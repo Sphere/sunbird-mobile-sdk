@@ -12,12 +12,12 @@ export class ExtractEcar {
                 private zipService: ZipService) {
     }
 
-    public execute(importContext: ImportContentContext): Promise<Response> {
+    public async execute(importContext: ImportContentContext): Promise<Response> {
         const response: Response = new Response();
         let size: number;
-        return this.fileService.getMetaData(importContext.ecarFilePath).then((metaData) => {
+        return await this.fileService.getMetaData(importContext.ecarFilePath).then(async(metaData) => {
             size = metaData.size;
-            return this.fileService.createDir(importContext.tmpLocation!.concat(UniqueId.generateUniqueId()), true);
+            return await this.fileService.createDir(importContext.tmpLocation!.concat(UniqueId.generateUniqueId()), true).catch((e) => { throw new Error(e); });
         }).then(async (directoryEntry) => {
             importContext.tmpLocation = directoryEntry.nativeURL;
             await new Promise<void>((resolve, reject) => {

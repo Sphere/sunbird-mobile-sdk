@@ -1,15 +1,17 @@
-import {CourseCertificateManager} from '../def/course-certificate-manager';
-import {DownloadCertificateRequest} from '../def/download-certificate-request';
-import {defer, Observable} from 'rxjs';
-import {DownloadCertificateResponse} from '../def/download-certificate-response';
-import {GetCertificateRequest} from '../def/get-certificate-request';
-import {CsCourseService} from '@project-sunbird/client-services/services/course';
-import {catchError, map, tap} from 'rxjs/operators';
-import {ProfileService} from '../../profile';
-import {KeyValueStore} from '../../key-value-store';
-import {FileService} from '../../util/file/def/file-service';
-import {gzip} from 'pako/dist/pako_deflate';
-import {ungzip} from 'pako/dist/pako_inflate';
+import { CourseCertificateManager } from '../def/course-certificate-manager';
+import { DownloadCertificateRequest } from '../def/download-certificate-request';
+import { defer, Observable } from 'rxjs';
+import { DownloadCertificateResponse } from '../def/download-certificate-response';
+import { GetCertificateRequest } from '../def/get-certificate-request';
+import { CsCourseService } from '@project-sunbird/client-services/services/course';
+import { catchError, map, tap } from 'rxjs/operators';
+import { ProfileService } from '../../profile';
+import { KeyValueStore } from '../../key-value-store';
+import { FileService } from '../../util/file/def/file-service';
+import { gzip } from 'pako/dist/pako_deflate';
+import { ungzip } from 'pako/dist/pako_inflate';
+import { FilePathService } from '../../services/file-path/file-path.service';
+import { FilePaths } from '../../services/file-path/file-path.enum';
 
 export class CourseCertificateManagerImpl implements CourseCertificateManager {
     constructor(
@@ -36,7 +38,7 @@ export class CourseCertificateManagerImpl implements CourseCertificateManager {
             tap(async (r) => {
                 await this.keyValueStore.setValue(
                     await this.buildCertificatePersistenceId(request),
-                    gzip(r.printUri, {to: 'string'})
+                    gzip(r.printUri, { to: 'string' })
                 ).toPromise();
             }),
             map((r) => r.printUri),
@@ -56,16 +58,17 @@ export class CourseCertificateManagerImpl implements CourseCertificateManager {
 
     downloadCertificate({ fileName, blob }: DownloadCertificateRequest): Observable<DownloadCertificateResponse> {
         return defer(async () => {
-            return this.fileService.writeFile(
-              cordova.file.externalDataDirectory ,
+            const folderUri = await FilePathService.getFilePath(FilePaths.EXTERNAL);
+            return await this.fileService.writeFile(
+                folderUri,
                 fileName, blob as any,
-                {replace: true}
+                { replace: true }
             ).
-            then(() => {
-                return {
-                    path: `${cordova.file.externalDataDirectory}${fileName}`
-                };
-            });
+                then(() => {
+                    return {
+                        path: `${folderUri}${fileName}`
+                    };
+                }).catch((e) => { throw new Error(e); });
         });
     }
 
@@ -80,6 +83,6 @@ export class CourseCertificateManagerImpl implements CourseCertificateManager {
             await this.buildCertificatePersistenceId(request),
         ).toPromise();
 
-        return value ? ungzip(value, {to: 'string'}) : undefined;
+        return value ? ungzip(value, { to: 'string' }) : undefined;
     }
 }

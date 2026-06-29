@@ -1,21 +1,22 @@
 import { Container, inject, injectable } from "inversify";
 import { CertificateService, CsLearnerCertificate, GetPublicKeyRequest, GetPublicKeyResponse } from "../def/certificate-service";
-import {defer, Observable, interval, Observer} from 'rxjs';
-import {catchError, map, tap,  concatMap, delay, filter, mergeMap, take} from 'rxjs/operators';
+import { defer, Observable, interval, Observer } from 'rxjs';
+import { catchError, map, tap, concatMap, delay, filter, mergeMap, take } from 'rxjs/operators';
 import { CsInjectionTokens, InjectionTokens } from "../../injection-tokens";
 import { DbService } from "../../db";
 import { GetPublicKeyHandler } from "../handlers/get-public-key-handler";
 import { SdkConfig } from "../../sdk-config";
-import {ProfileService} from '../../profile';
-import {DownloadCertificateResponse} from '../../course/def/download-certificate-response';
-import {GetCertificateRequest} from '../../course/def/get-certificate-request';
+import { ProfileService } from '../../profile';
+import { DownloadCertificateResponse } from '../../course/def/download-certificate-response';
+import { GetCertificateRequest } from '../../course/def/get-certificate-request';
 import { CsCertificateService, CSGetLearnerCerificateRequest, CsVerifyCertificateResponse, CsLearnerCertificateResponse, CsVerifyCertificateRequest } from "@project-sunbird/client-services/services/certificate";
-import {KeyValueStore} from '../../key-value-store';
-import {FileService} from '../../util/file/def/file-service';
-import {gzip} from 'pako/dist/pako_deflate';
-import {ungzip} from 'pako/dist/pako_inflate';
+import { KeyValueStore } from '../../key-value-store';
+import { FileService } from '../../util/file/def/file-service';
+import { gzip } from 'pako/dist/pako_deflate';
+import { ungzip } from 'pako/dist/pako_inflate';
 import { DownloadCertificateRequest } from "../../course/def/download-certificate-request";
-
+import { FilePaths } from "../../services/file-path/file-path.enum";
+import { FilePathService } from '../../services/file-path/file-path.service';
 
 @injectable()
 export class CertificateServiceImpl implements CertificateService {
@@ -31,7 +32,7 @@ export class CertificateServiceImpl implements CertificateService {
     getCertificates(req: CSGetLearnerCerificateRequest): Observable<CsLearnerCertificateResponse> {
         return this.csCertificateService.fetchCertificates(req);
     }
-   
+
     getPublicKey(request: GetPublicKeyRequest): Observable<GetPublicKeyResponse> {
         return new GetPublicKeyHandler(this.dbService, this.container, this.sdkConfig.certificateServiceConfig, this.sdkConfig.apiConfig).handle(request)
     }
@@ -39,14 +40,14 @@ export class CertificateServiceImpl implements CertificateService {
     getCertificate(request: GetCertificateRequest): Observable<string> {
         return this.csCertificateService.getCerificateDownloadURI({
             certificateId: request.certificate.identifier!,
-            type:request.certificate.type,
+            type: request.certificate.type,
             schemaName: 'certificate',
             templateUrl: request.certificate.templateUrl
         }).pipe(
             tap(async (r) => {
                 await this.keyValueStore.setValue(
                     await this.buildCertificatePersistenceId(request),
-                    gzip(r.printUri, {to: 'string'})
+                    gzip(r.printUri, { to: 'string' })
                 ).toPromise();
             }),
             map((r) => r.printUri),
@@ -62,18 +63,19 @@ export class CertificateServiceImpl implements CertificateService {
         );
     }
 
-   downloadCertificate({ fileName, blob }: DownloadCertificateRequest): Observable<DownloadCertificateResponse> {
+    downloadCertificate({ fileName, blob }: DownloadCertificateRequest): Observable<DownloadCertificateResponse> {
         return defer(async () => {
-            return this.fileService.writeFile(
-              cordova.file.externalDataDirectory ,
+            const filePath = await FilePathService.getFilePath(FilePaths.EXTERNAL);
+            return await this.fileService.writeFile(
+                filePath,
                 fileName, blob as any,
-                {replace: true}
+                { replace: true }
             ).
-            then(() => {
-                return {
-                    path: `${cordova.file.externalDataDirectory}${fileName}`
-                };
-            });
+                then(() => {
+                    return {
+                        path: `${filePath}${fileName}`
+                    };
+                }). catch((e) => { throw new Error('Error while writing file') });
         });
     }
 
@@ -82,7 +84,9 @@ export class CertificateServiceImpl implements CertificateService {
             const activeProfile = (await this.profileService.getActiveProfileSession().toPromise());
             const userId = activeProfile.managedSession ? activeProfile.managedSession.uid : activeProfile.uid;
 
-            const folderPath = (window.device.platform.toLowerCase() === 'ios') ? cordova.file.documentsDirectory : cordova.file.externalRootDirectory;
+            const platform = window.device.platform.toLowerCase();
+            const storagePath = platform === 'ios' ? FilePaths.DOCUMENTS : FilePaths.EXTERNAL_STORAGE;
+            const folderPath = await FilePathService.getFilePath(storagePath);
             const filePath = `${folderPath}Download/${request.certificate.name}_${request.courseId}_${userId}.pdf`;
             return { userId };
         }).pipe(
@@ -162,7 +166,7 @@ export class CertificateServiceImpl implements CertificateService {
         return this.csCertificateService.getEncodedData(req)
     }
 
-    verifyCertificate(req: CsVerifyCertificateRequest): Observable<CsVerifyCertificateResponse>{
+    verifyCertificate(req: CsVerifyCertificateRequest): Observable<CsVerifyCertificateResponse> {
         return this.csCertificateService.verifyCertificate(req)
     }
 
@@ -180,7 +184,7 @@ export class CertificateServiceImpl implements CertificateService {
         const value = await this.keyValueStore.getValue(
             await this.buildCertificatePersistenceId(request),
         ).toPromise();
-        return value ? ungzip(value, {to: 'string'}) : undefined;
+        return value ? ungzip(value, { to: 'string' }) : undefined;
     }
 
 }
