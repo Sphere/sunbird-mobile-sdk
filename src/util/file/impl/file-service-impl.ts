@@ -8,9 +8,13 @@ import {
     Metadata,
 } from '../index';
 import { Filesystem, Encoding, FileInfo, Directory } from '@capacitor/filesystem';
-import { Plugins } from '@capacitor/core';
+import { registerPlugin } from '@capacitor/core';
 
-const { DiskSpacePlugin } = Plugins;
+interface DiskSpacePluginInterface {
+    getFreeDiskSpace(): Promise<{ freeSpace: number }>;
+}
+
+const DiskSpacePlugin = registerPlugin<DiskSpacePluginInterface>('DiskSpacePlugin');
 
 /**
  * Allows the user to look up the Entry for a file or directory referred to by a local URL.
