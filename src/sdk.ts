@@ -23,6 +23,7 @@ import {PageAssembleService, PageServiceConfig} from './page';
 import {PageAssembleServiceImpl} from './page/impl/page-assemble-service-impl';
 import {SharedPreferencesLocalStorage} from './util/shared-preferences/impl/shared-preferences-local-storage';
 import {SharedPreferencesAndroid} from './util/shared-preferences/impl/shared-preferences-android';
+import {SharedPreferencesCapacitorImpl} from './util/shared-preferences/impl/shared-preferences-capacitor-impl';
 import {FileServiceImpl} from './util/file/impl/file-service-impl';
 import {ProfileSyllabusMigration} from './db/migrations/profile-syllabus-migration';
 import {GroupProfileMigration} from './db/migrations/group-profile-migration';
@@ -45,6 +46,7 @@ import {DownloadService} from './util/download';
 import {DownloadServiceImpl} from './util/download/impl/download-service-impl';
 import {AppInfo} from './util/app';
 import {AppInfoImpl} from './util/app/impl/app-info-impl';
+import {AppInfoCapacitorImpl} from './util/app/impl/app-info-capacitor-impl';
 import {PlayerService, PlayerServiceImpl} from './player';
 import {TelemetryConfig} from './telemetry/config/telemetry-config';
 import {OfflineSearchTextbookMigration} from './db/migrations/offline-search-textbook-migration';
@@ -58,6 +60,7 @@ import {ErrorLoggerService} from './error';
 import {ErrorLoggerServiceImpl} from './error/impl/error-logger-service-impl';
 import {NetworkInfoService} from './util/network';
 import {NetworkInfoServiceImpl} from './util/network/impl/network-info-service-impl';
+import {NetworkInfoCapacitorServiceImpl} from './util/network/impl/network-info-capacitor-service-impl';
 import {SearchHistoryMigration} from './db/migrations/search-history-migration';
 import {SearchHistoryService} from './util/search-history';
 import {SearchHistoryServiceImpl} from './util/search-history/impl/search-history-service-impl';
@@ -315,9 +318,8 @@ export class SunbirdSdk {
                     .to(SharedPreferencesLocalStorage).inSingletonScope();
                 break;
             case 'capacitor':
-                // Placeholder: replaced with SharedPreferencesCapacitor in the SharedPreferences migration phase.
                 this._container.bind<SharedPreferences>(InjectionTokens.SHARED_PREFERENCES)
-                    .to(SharedPreferencesLocalStorage).inSingletonScope();
+                    .to(SharedPreferencesCapacitorImpl).inSingletonScope();
                 break;
             default:
                 throw new Error('FATAL_ERROR: Invalid platform');
@@ -337,7 +339,11 @@ export class SunbirdSdk {
 
         this._container.bind<EventsBusService>(InjectionTokens.EVENTS_BUS_SERVICE).to(EventsBusServiceImpl).inSingletonScope();
 
-        this._container.bind<AppInfo>(InjectionTokens.APP_INFO).to(AppInfoImpl).inSingletonScope();
+        if (sdkConfig.platform === 'capacitor') {
+            this._container.bind<AppInfo>(InjectionTokens.APP_INFO).to(AppInfoCapacitorImpl).inSingletonScope();
+        } else {
+            this._container.bind<AppInfo>(InjectionTokens.APP_INFO).to(AppInfoImpl).inSingletonScope();
+        }
 
         this._container.bind<ApiService>(InjectionTokens.API_SERVICE).to(ApiServiceImpl).inSingletonScope();
 
@@ -389,7 +395,11 @@ export class SunbirdSdk {
 
         this._container.bind<NotificationService>(InjectionTokens.NOTIFICATION_SERVICE).to(NotificationServiceImpl).inSingletonScope();
 
-        this._container.bind<NetworkInfoService>(InjectionTokens.NETWORKINFO_SERVICE).to(NetworkInfoServiceImpl).inSingletonScope();
+        if (sdkConfig.platform === 'capacitor') {
+            this._container.bind<NetworkInfoService>(InjectionTokens.NETWORKINFO_SERVICE).to(NetworkInfoCapacitorServiceImpl).inSingletonScope();
+        } else {
+            this._container.bind<NetworkInfoService>(InjectionTokens.NETWORKINFO_SERVICE).to(NetworkInfoServiceImpl).inSingletonScope();
+        }
 
         this._container.bind<SearchHistoryService>(InjectionTokens.SEARCH_HISTORY_SERVICE).to(SearchHistoryServiceImpl).inSingletonScope();
 

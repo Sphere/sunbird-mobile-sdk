@@ -13,6 +13,7 @@ import dayjs from 'dayjs';
 import {TelemetryLogger} from '../util/telemetry-logger';
 import {TelemetryConfig} from '../config/telemetry-config';
 import {SharedPreferences} from '../../util/shared-preferences';
+import { Network } from '@capacitor/network';
 import {CodePush, TelemetryKeys} from '../../preference-keys';
 import {AppInfo} from '../../util/app';
 import {DeviceRegisterService} from '../../device-register';
@@ -97,7 +98,8 @@ export class TelemetrySyncHandler implements ApiRequestHandler<TelemetrySyncRequ
                     error: new Error('AUTO_SYNC_MODE: ' + TelemetryAutoSyncModes.OFF)
                   };
                 case TelemetryAutoSyncModes.OVER_WIFI:
-                  if (navigator.connection.type !== Connection.WIFI) {
+                  const netStatus = await Network.getStatus();
+                  if (netStatus.connectionType !== 'wifi') {
                     return {
                       syncedEventCount: 0,
                       syncTime: Date.now(),
