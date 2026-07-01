@@ -30,8 +30,9 @@
     "whatwg-fetch": "^3.6.2"
   },
   "peerDependencies": {
-    "@project-sunbird/client-services": "7.0.6",
+    "@capacitor/device": "^5.0.8",
     "@capacitor/filesystem": "5.2.2",
+    "@project-sunbird/client-services": "7.0.6",
     "cordova-plugin-advanced-http": "^2.0.2",
     "cordova-plugin-android-downloadmanager": "git+https://github.com/Sunbird-Ed/sb-cordova-plugin-downloadmanager.git",
     "cordova-plugin-awesome-shared-preferences": "^0.1.0",
@@ -43,9 +44,10 @@
     "sb-cordova-plugin-utility": "git+https://github.com/Sunbird-Ed/sb-cordova-plugin-utility/tree/release-6.0.0"
   },
   "devDependencies": {
-    "@project-sunbird/client-services": "7.0.6",
-    "@capacitor/filesystem": "5.2.2",
     "@capacitor/core": "5.7.8",
+    "@capacitor/device": "^5.0.8",
+    "@capacitor/filesystem": "5.2.2",
+    "@project-sunbird/client-services": "7.0.6",
     "@types/jest": "^25.2.3",
     "@types/node": "12.0.2",
     "@types/node-fetch": "2.5.4",

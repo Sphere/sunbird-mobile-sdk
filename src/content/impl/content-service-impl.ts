@@ -71,6 +71,7 @@ import { CreateTempLoc } from '../handlers/export/create-temp-loc';
 import { SearchRequest } from '../def/search-request';
 import { ContentSearchApiHandler } from '../handlers/import/content-search-api-handler';
 import { ArrayUtil } from '../../util/array-util';
+import { getPlatform } from '../../util/platform/platform-util';
 import { FileUtil } from '../../util/file/util/file-util';
 import { DownloadRequest, DownloadService } from '../../util/download';
 import { DownloadCompleteDelegate } from '../../util/download/def/download-complete-delegate';
@@ -853,7 +854,7 @@ export class ContentServiceImpl implements ContentService, DownloadCompleteDeleg
     }
 
     async downloadTranscriptFile(transcriptReq) {
-        const platform = window.device.platform.toLowerCase();
+        const platform = getPlatform();
         const storagePath = platform === 'ios' ? FilePaths.DOCUMENTS : FilePaths.DATA;
         let dataDirectory = await FilePathService.getFilePath(storagePath);
         dataDirectory = platform === 'ios' ? dataDirectory : dataDirectory + ContentServiceImpl.DOWNLOAD_DIR_NAME;

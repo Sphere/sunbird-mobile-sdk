@@ -6,6 +6,7 @@ import { SunbirdSdk } from '../../../../sdk';
 import { CsModule } from '@project-sunbird/client-services';
 import { WebviewSessionProviderConfig } from '../../webview-session-provider/def/webview-session-provider-config';
 import { JwtUtil } from '../../../../util/jwt-util';
+import { getPlatform } from '../../../../util/platform/platform-util';
 
 export interface NativeKeycloakTokens {
     username: string;
@@ -41,7 +42,7 @@ export class NativeKeycloakSessionProvider implements SessionProvider {
     }
 
     private callKeycloakNativeLogin(emailId: string, password: string): Observable<any> {
-        const platform = window.device.platform.toLowerCase() ==='ios' ? 'ios' : window.device.platform.toLowerCase();
+        const platform = getPlatform() ==='ios' ? 'ios' : getPlatform();
         const apiRequest: Request = new Request.Builder()
             .withType(HttpRequestType.POST)
             .withPath(NativeKeycloakSessionProvider.LOGIN_API_ENDPOINT)

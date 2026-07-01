@@ -2,6 +2,7 @@ import { from } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { StorageService } from '../../storage/def/storage-service';
 import {FileService} from '../../util/file/def/file-service';
+import { getPlatform } from '../../util/platform/platform-util';
 
 export class QuestionSetFileReadHandler{
     constructor(
@@ -13,7 +14,7 @@ export class QuestionSetFileReadHandler{
         const path = this.storageService.getStorageDestinationDirectoryPath();
         let questionList: any = [];
         questionIds.forEach(async id => {
-            const textData = await this.fileService.readAsText((window.device.platform.toLowerCase() === "ios") 
+            const textData = await this.fileService.readAsText((getPlatform() === "ios") 
                             ? `${path}/content/${parentId}/${id}` : `${path}content/${parentId}/${id}`, 'index.json')
                             .catch(e => { throw new Error(e) });
             questionList.push(textData);

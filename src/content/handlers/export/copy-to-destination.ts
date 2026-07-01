@@ -3,6 +3,7 @@ import {FileUtil} from '../../../util/file/util/file-util';
 import { ContentExportRequest } from '../..';
 import { FilePaths } from "../../../services/file-path/file-path.enum";
 import { FilePathService } from '../../../services/file-path/file-path.service';
+import { getPlatform } from '../../../util/platform/platform-util';
 
 export class CopyToDestination {
 
@@ -10,7 +11,7 @@ export class CopyToDestination {
     }
 
     public async execute(exportResponse: Response, contentExportRequest: ContentExportRequest): Promise<Response> {
-        const platform = window.device.platform.toLowerCase();
+        const platform = getPlatform();
         const storagePath = platform === 'ios' ? FilePaths.DOCUMENTS : FilePaths.CACHE;
         const folderPath = await FilePathService.getFilePath(storagePath);
         return new Promise<Response>((resolve, reject) => {

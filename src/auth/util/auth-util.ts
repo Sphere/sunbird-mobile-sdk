@@ -6,6 +6,7 @@ import {SharedPreferences} from '../../util/shared-preferences';
 import {AuthTokenRefreshErrorEvent, ErrorEventType, EventNamespace, EventsBusService} from '../../events-bus';
 import {AuthTokenRefreshError} from '../errors/auth-token-refresh-error';
 import { JwtUtil } from '../../util/jwt-util';
+import { getPlatform } from '../../util/platform/platform-util';
 
 export class AuthUtil {
     constructor(
@@ -23,7 +24,7 @@ export class AuthUtil {
             throw new NoActiveSessionError('No Active Sessions found');
         }
         let request ;
-        if(window.device.platform.toLowerCase() === "ios"){
+        if(getPlatform() === "ios"){
             request = new Request.Builder()
             .withPath('/auth/v1/refresh/token')
             .withType(HttpRequestType.POST)

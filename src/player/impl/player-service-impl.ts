@@ -8,6 +8,7 @@ import {Actor, CorrelationData, ProducerData} from '../../telemetry';
 import {SdkConfig} from '../../sdk-config';
 import {FrameworkService} from '../../framework';
 import {ContentUtil} from '../../content/util/content-util';
+import { getPlatform } from '../../util/platform/platform-util';
 import {AppInfo} from '../../util/app';
 import {inject, injectable} from 'inversify';
 import {InjectionTokens} from '../../injection-tokens';
@@ -41,7 +42,7 @@ export class PlayerServiceImpl implements PlayerService {
         const playerInput: PlayerInput = {};
         content.rollup = ContentUtil.getRollup(content.identifier, content.hierarchyInfo!);
         context.objectRollup = content.rollup;
-        if (window.device.platform.toLowerCase() === 'ios') {
+        if (getPlatform() === 'ios') {
             content.basePath = (content.basePath || (content.basePath = '')).replace(/\/$/, '');
         } else {
             content.basePath = content.basePath.replace(/\/$/, '');

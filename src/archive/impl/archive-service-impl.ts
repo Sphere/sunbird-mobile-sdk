@@ -18,6 +18,7 @@ import { ProducerData, ShareDirection, ShareType, TelemetryService, TelemetrySha
 import { ZipService } from '../../util/zip/def/zip-service';
 import { InvalidRequestError } from '..';
 import { TelemetryImportDelegate } from '../import/impl/telemetry-import-delegate';
+import { getPlatform } from '../../util/platform/platform-util';
 import { InvalidArchiveError } from '../import/error/invalid-archive-error';
 import { TelemetryArchivePackageMeta } from '../export/def/telemetry-archive-package-meta';
 import { FileUtil } from '../../util/file/util/file-util';
@@ -80,7 +81,7 @@ export class ArchiveServiceImpl implements ArchiveService {
 
     export(exportRequest: ArchiveExportRequest): Observable<ArchiveExportProgress> {
         return defer(async () => {
-            const platform = window.device.platform.toLowerCase();
+            const platform = getPlatform();
             const storagePath = platform === 'ios' ? FilePaths.DOCUMENTS : FilePaths.CACHE;
             const folderUri = await FilePathService.getFilePath(storagePath);
             return { folderUri };
@@ -178,7 +179,7 @@ export class ArchiveServiceImpl implements ArchiveService {
 
     private generateZipArchive(progress: ArchiveExportProgress, workspacePath: string): Observable<ArchiveExportProgress> {
         return defer(async () => {
-            const platform = window.device.platform.toLowerCase();
+            const platform = getPlatform();
             const storagePath = platform === 'ios' ? FilePaths.DOCUMENTS : FilePaths.CACHE;
             const folderPath = await FilePathService.getFilePath(storagePath);
             const zipFilePath = `${folderPath}archive-${new Date().toISOString()}.zip`;
@@ -262,7 +263,7 @@ export class ArchiveServiceImpl implements ArchiveService {
         };
 
         return defer(async () => {
-            const platform = window.device.platform.toLowerCase();
+            const platform = getPlatform();
             const storagePath = platform === 'ios' ? FilePaths.DOCUMENTS : FilePaths.CACHE;
             const folderUri = await FilePathService.getFilePath(storagePath);
             const workspacePath = `${folderUri}${UniqueId.generateUniqueId()}`;

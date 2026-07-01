@@ -6,6 +6,7 @@ import {OAuthSession} from '../../../def/o-auth-session';
 import {SunbirdSdk} from '../../../../sdk';
 import {CsModule} from '@project-sunbird/client-services';
 import { JwtUtil } from '../../../../util/jwt-util';
+import { getPlatform } from '../../../../util/platform/platform-util';
 
 export interface NativeGoogleTokens {
     idToken: string;
@@ -41,7 +42,7 @@ export class NativeGoogleSessionProvider implements SessionProvider {
     }
 
     private callGoogleNativeLogin(idToken: string, emailId: string): Observable<any> {
-        const platform = window.device.platform.toLowerCase() ==='ios' ? 'ios' :null;
+        const platform = getPlatform() ==='ios' ? 'ios' :null;
         const apiRequest: Request = new Request.Builder()
             .withType(HttpRequestType.POST)
             .withPath(NativeGoogleSessionProvider.LOGIN_API_ENDPOINT)

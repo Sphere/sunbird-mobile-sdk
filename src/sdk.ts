@@ -35,6 +35,8 @@ import {ZipService} from './util/zip/def/zip-service';
 import {DeviceInfo} from './util/device';
 import {ZipServiceImpl} from './util/zip/impl/zip-service-impl';
 import {DeviceInfoImpl} from './util/device/impl/device-info-impl';
+import {CapacitorDeviceInfoImpl} from './util/device/impl/capacitor-device-info-impl';
+import {initPlatformUtil, getDeviceId, getPlatform} from './util/platform/platform-util';
 import {ContentFeedbackServiceImpl} from './content/impl/content-feedback-service-impl';
 import {EventsBusService} from './events-bus';
 import {EventsBusServiceImpl} from './events-bus/impl/events-bus-service-impl';
@@ -73,7 +75,6 @@ import {NetworkQueueImpl} from './api/network-queue/impl/network-queue-impl';
 import {NetworkQueue} from './api/network-queue';
 import {CsModule} from '@project-sunbird/client-services';
 import {CsHttpService} from '@project-sunbird/client-services/core/http-service';
-import * as SHA1 from 'crypto-js/sha1';
 import {CsGroupService} from '@project-sunbird/client-services/services/group';
 import {CsCourseService} from '@project-sunbird/client-services/services/course';
 import {GroupService} from './group';
@@ -274,6 +275,9 @@ export class SunbirdSdk {
     }
 
     public async init(sdkConfig: SdkConfig) {
+        await initPlatformUtil(sdkConfig.platform);
+        console.log('[PHASE1_DEBUG] platform:', getPlatform(), 'deviceId:', getDeviceId());
+
         this._container = new Container();
 
         this._container.bind<Container>(InjectionTokens.CONTAINER).toConstantValue(this._container);
@@ -325,7 +329,11 @@ export class SunbirdSdk {
 
         this._container.bind<SdkConfig>(InjectionTokens.SDK_CONFIG).toConstantValue(sdkConfig);
 
-        this._container.bind<DeviceInfo>(InjectionTokens.DEVICE_INFO).to(DeviceInfoImpl).inSingletonScope();
+        if (sdkConfig.platform === 'capacitor') {
+            this._container.bind<DeviceInfo>(InjectionTokens.DEVICE_INFO).to(CapacitorDeviceInfoImpl).inSingletonScope();
+        } else {
+            this._container.bind<DeviceInfo>(InjectionTokens.DEVICE_INFO).to(DeviceInfoImpl).inSingletonScope();
+        }
 
         this._container.bind<EventsBusService>(InjectionTokens.EVENTS_BUS_SERVICE).to(EventsBusServiceImpl).inSingletonScope();
 
@@ -417,7 +425,7 @@ export class SunbirdSdk {
                     global: {
                         channelId: sdkConfig.apiConfig.api_authentication.channelId,
                         producerId: sdkConfig.apiConfig.api_authentication.producerId,
-                        deviceId: SHA1(window.device.uuid).toString()
+                        deviceId: getDeviceId()
                     },
                     api: {
                         host: sdkConfig.apiConfig.host,

@@ -1,5 +1,6 @@
 import { FilePaths } from "../../../services/file-path/file-path.enum";
 import { FilePathService } from "../../../services/file-path/file-path.service";
+import { getPlatform } from '../../platform/platform-util';
 export class Path {
     public static ASSETS_PATH = 'file:///android_asset/www/assets';
 
@@ -11,7 +12,7 @@ export class Path {
         return filePath.substring(filePath.lastIndexOf('/') + 1);
     }
     public static async getAssetPath(): Promise<string> {
-        const platform = window.device.platform.toLowerCase();
+        const platform = getPlatform();
         return platform === 'ios' ? "www/assets" : Path.ASSETS_PATH
     }
 }

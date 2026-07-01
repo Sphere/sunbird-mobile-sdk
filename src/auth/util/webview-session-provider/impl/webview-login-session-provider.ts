@@ -7,6 +7,7 @@ import {WebviewAutoMergeSessionProvider} from './webview-auto-merge-session-prov
 import {WebviewBaseSessionProvider} from './webview-base-session-provider';
 import {TelemetryService} from '../../../../telemetry';
 
+import { getPlatform } from '../../../../util/platform/platform-util';
 interface ParamMap { [key: string]: string; }
 
 export class WebviewLoginSessionProvider extends WebviewBaseSessionProvider {
@@ -42,7 +43,7 @@ export class WebviewLoginSessionProvider extends WebviewBaseSessionProvider {
            key: 'pdata',
            value: JSON.stringify(telemetryContext.pdata)
         });
-        if(window.device.platform.toLowerCase() === 'ios' && this.loginConfig.context === "login") {
+        if(getPlatform() === 'ios' && this.loginConfig.context === "login") {
             await dsl.launchWebview({
                 host: this.loginConfig.target.host,
                 path: 'logoff',

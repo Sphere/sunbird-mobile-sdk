@@ -5,6 +5,7 @@ import {catchError, filter, map, mapTo, tap} from 'rxjs/operators';
 import {TelemetryAutoSyncService} from './telemetry-auto-sync-service';
 import {SharedPreferences} from '../../util/shared-preferences';
 import {TelemetryKeys} from '../../preference-keys';
+import { getPlatform } from '../../util/platform/platform-util';
 
 
 export class TelemetryAutoSyncServiceImpl implements TelemetryAutoSyncService {
@@ -89,7 +90,7 @@ export class TelemetryAutoSyncServiceImpl implements TelemetryAutoSyncService {
                 const timeCovered = iteration * intervalTime;
 
                 if (timeCovered % TelemetryAutoSyncServiceImpl.DOWNLOAD_SPEED_TELEMETRY_SYNC_INTERVAL === 0) {
-                    if(window.device.platform.toLowerCase() !== "ios") {
+                    if(getPlatform() !== "ios") {
                         TelemetryAutoSyncServiceImpl.generateDownloadSpeedTelemetry(intervalTime);
                     }
                 }

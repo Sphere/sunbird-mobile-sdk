@@ -51,6 +51,7 @@ import {NetworkQueue} from '../../api/network-queue';
 import {AuthService} from '../../auth';
 import * as qs from 'qs';
 import {GetLearnerCertificateHandler} from '../handlers/get-learner-certificate-handler';
+import { getPlatform } from '../../util/platform/platform-util';
 import {LearnerCertificate} from '../def/get-learner-certificate-response';
 import {OfflineAssessmentScoreProcessor} from './offline-assessment-score-processor';
 import {GetEnrolledCourseResponse} from '../def/get-enrolled-course-response';
@@ -260,7 +261,7 @@ export class CourseServiceImpl implements CourseService {
             const activeProfile = (await this.profileService.getActiveProfileSession().toPromise());
             const userId = activeProfile.managedSession ? activeProfile.managedSession.uid : activeProfile.uid;
 
-            const platform = window.device.platform.toLowerCase();
+            const platform = getPlatform();
             const storagePath = platform === 'ios' ? FilePaths.DOCUMENTS : FilePaths.EXTERNAL_STORAGE;
             const folderPath = await FilePathService.getFilePath(storagePath);
             const filePath = `${folderPath}Download/${request.certificate.name}_${request.courseId}_${userId}.pdf`;

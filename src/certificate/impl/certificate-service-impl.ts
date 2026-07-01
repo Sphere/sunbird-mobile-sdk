@@ -1,3 +1,4 @@
+import { getPlatform } from '../../util/platform/platform-util';
 import { Container, inject, injectable } from "inversify";
 import { CertificateService, CsLearnerCertificate, GetPublicKeyRequest, GetPublicKeyResponse } from "../def/certificate-service";
 import { defer, Observable, interval, Observer } from 'rxjs';
@@ -84,7 +85,7 @@ export class CertificateServiceImpl implements CertificateService {
             const activeProfile = (await this.profileService.getActiveProfileSession().toPromise());
             const userId = activeProfile.managedSession ? activeProfile.managedSession.uid : activeProfile.uid;
 
-            const platform = window.device.platform.toLowerCase();
+            const platform = getPlatform();
             const storagePath = platform === 'ios' ? FilePaths.DOCUMENTS : FilePaths.EXTERNAL_STORAGE;
             const folderPath = await FilePathService.getFilePath(storagePath);
             const filePath = `${folderPath}Download/${request.certificate.name}_${request.courseId}_${userId}.pdf`;

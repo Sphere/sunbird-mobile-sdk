@@ -3,6 +3,7 @@ import {ContentDisposition, ContentEncoding, ContentStatus, MimeType, State, Vis
 import {Rollup} from '../../telemetry';
 import {AppConfig} from '../../api/config/app-config';
 import {ContentEntry} from '../db/schema';
+import { getPlatform } from '../../util/platform/platform-util';
 import {NumberUtil} from '../../util/number-util';
 import {ArrayUtil} from '../../util/array-util';
 import dayjs from 'dayjs';
@@ -264,7 +265,7 @@ export class ContentUtil {
     }
 
     public static getContentRootDir(rootFilePath: string): string {
-        let url = (window.device.platform.toLowerCase() === "ios") ? rootFilePath.concat("content/") : rootFilePath.concat('content')
+        let url = (getPlatform() === "ios") ? rootFilePath.concat("content/") : rootFilePath.concat('content')
         return url;
     }
 
