@@ -36,6 +36,7 @@ import {SystemSettingsService, SystemSettingsServiceImpl} from './system-setting
 import {ZipService} from './util/zip/def/zip-service';
 import {DeviceInfo} from './util/device';
 import {ZipServiceImpl} from './util/zip/impl/zip-service-impl';
+import {ZipServiceCapacitorImpl} from './util/zip/impl/zip-service-capacitor-impl';
 import {DeviceInfoImpl} from './util/device/impl/device-info-impl';
 import {CapacitorDeviceInfoImpl} from './util/device/impl/capacitor-device-info-impl';
 import {initPlatformUtil, getDeviceId, getPlatform} from './util/platform/platform-util';
@@ -369,7 +370,11 @@ export class SunbirdSdk {
 
         this._container.bind<ErrorLoggerService>(InjectionTokens.ERROR_LOGGER_SERVICE).to(ErrorLoggerServiceImpl).inSingletonScope();
 
-        this._container.bind<ZipService>(InjectionTokens.ZIP_SERVICE).to(ZipServiceImpl).inSingletonScope();
+        if (sdkConfig.platform === 'capacitor') {
+            this._container.bind<ZipService>(InjectionTokens.ZIP_SERVICE).to(ZipServiceCapacitorImpl).inSingletonScope();
+        } else {
+            this._container.bind<ZipService>(InjectionTokens.ZIP_SERVICE).to(ZipServiceImpl).inSingletonScope();
+        }
 
         this._container.bind<TelemetryService>(InjectionTokens.TELEMETRY_SERVICE).to(TelemetryServiceImpl).inSingletonScope();
 
