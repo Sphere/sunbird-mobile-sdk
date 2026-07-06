@@ -5,6 +5,7 @@ import {TelemetryDecorator, TelemetryService} from './telemetry';
 import {SharedPreferences} from './util/shared-preferences';
 import {SdkConfig} from './sdk-config';
 import {DbCordovaService} from './db/impl/db-cordova-service';
+import {DbServiceCapacitorImpl} from './db/impl/db-service-capacitor-impl';
 import {TelemetryDecoratorImpl} from './telemetry/impl/decorator-impl';
 import {TelemetryServiceImpl} from './telemetry/impl/telemetry-service-impl';
 import {AuthServiceImpl} from './auth/impl/auth-service-impl';
@@ -325,7 +326,11 @@ export class SunbirdSdk {
                 throw new Error('FATAL_ERROR: Invalid platform');
         }
 
-        this._container.bind<DbService>(InjectionTokens.DB_SERVICE).to(DbCordovaService).inSingletonScope();
+        if (sdkConfig.platform === 'capacitor') {
+            this._container.bind<DbService>(InjectionTokens.DB_SERVICE).to(DbServiceCapacitorImpl).inSingletonScope();
+        } else {
+            this._container.bind<DbService>(InjectionTokens.DB_SERVICE).to(DbCordovaService).inSingletonScope();
+        }
 
         this._container.bind<FileService>(InjectionTokens.FILE_SERVICE).to(FileServiceImpl).inSingletonScope();
 

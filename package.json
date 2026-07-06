@@ -30,6 +30,7 @@
     "whatwg-fetch": "^3.6.2"
   },
   "peerDependencies": {
+    "@capacitor-community/sqlite": "^7.0.3",
     "@capacitor/app": "^8.1.0",
     "@capacitor/device": "^5.0.8",
     "@capacitor/filesystem": "5.2.2",
@@ -47,6 +48,7 @@
     "sb-cordova-plugin-utility": "git+https://github.com/Sunbird-Ed/sb-cordova-plugin-utility/tree/release-6.0.0"
   },
   "devDependencies": {
+    "@capacitor-community/sqlite": "^7.0.3",
     "@capacitor/app": "^8.1.0",
     "@capacitor/core": "5.7.8",
     "@capacitor/device": "^5.0.8",
