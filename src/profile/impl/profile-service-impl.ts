@@ -96,6 +96,8 @@ import {UpdateServerProfileInfoRequest} from '../def/update-server-profile-info-
 import {DeleteProfileDataHandler} from '../handler/delete-profile-data.handler';
 import { DeleteUserRequest } from '../def/delete-user-request';
 import { DeleteAccountHandler } from '../handler/delete-account-handler';
+import { getSdkPlatform } from '../../util/platform/platform-util';
+import { InAppBrowser } from '@capgo/inappbrowser';
 
 @injectable()
 export class ProfileServiceImpl implements ProfileService {
@@ -686,13 +688,24 @@ export class ProfileServiceImpl implements ProfileService {
                     this.sdkConfig.apiConfig.user_authentication.authUrl + '/logout' + '?redirect_uri=' +
                     this.sdkConfig.apiConfig.host + '/oauth2callback';
 
-                const inAppBrowserRef = cordova.InAppBrowser.open(launchUrl, '_blank', 'zoom=no,hidden=yes');
-
-                inAppBrowserRef.addEventListener('loadstart', async (event) => {
-                    if ((<string> event.url).indexOf('/oauth2callback') > -1) {
-                        inAppBrowserRef.close();
-                    }
-                });
+                if (getSdkPlatform() === 'capacitor') {
+                    (async () => {
+                        await InAppBrowser.openWebView({ url: launchUrl });
+                        const handle = await InAppBrowser.addListener('urlChangeEvent', async (event) => {
+                            if (event.url.indexOf('/oauth2callback') > -1) {
+                                await InAppBrowser.close();
+                                handle.remove();
+                            }
+                        });
+                    })();
+                } else {
+                    const inAppBrowserRef = cordova.InAppBrowser.open(launchUrl, '_blank', 'zoom=no,hidden=yes');
+                    inAppBrowserRef.addEventListener('loadstart', async (event) => {
+                        if ((<string> event.url).indexOf('/oauth2callback') > -1) {
+                            inAppBrowserRef.close();
+                        }
+                    });
+                }
             })
         );
     }

@@ -3,9 +3,11 @@ import * as SHA1 from 'crypto-js/sha1';
 
 let _platform: string | undefined;
 let _deviceId: string | undefined;
+let _sdkPlatform: 'cordova' | 'web' | 'capacitor' = 'cordova';
 let _initialized = false;
 
 export async function initPlatformUtil(sdkPlatform: 'cordova' | 'web' | 'capacitor'): Promise<void> {
+    _sdkPlatform = sdkPlatform;
     if (sdkPlatform === 'capacitor') {
         const [idResult, infoResult] = await Promise.all([
             Device.getId(),
@@ -41,4 +43,8 @@ export function getDeviceId(): string {
     return (typeof window !== 'undefined' && (window as any).device)
         ? SHA1((window as any).device.uuid).toString()
         : '';
+}
+
+export function getSdkPlatform(): 'cordova' | 'web' | 'capacitor' {
+    return _sdkPlatform;
 }

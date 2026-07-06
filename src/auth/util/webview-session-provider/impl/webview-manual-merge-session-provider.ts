@@ -3,6 +3,8 @@ import {WebviewRunner} from '../def/webview-runner';
 import {WebviewSessionProviderConfig} from '../../..';
 import {SunbirdSdk} from '../../../../sdk';
 import {WebviewRunnerImpl} from './webview-runner-impl';
+import {WebviewRunnerCapacitorImpl} from './webview-runner-capacitor-impl';
+import { getSdkPlatform } from '../../../../util/platform/platform-util';
 import {OAuthSession} from '../../..';
 import {InterruptError} from '../../..';
 import {TelemetryService} from '../../../../telemetry';
@@ -22,7 +24,7 @@ export class WebviewManualMergeSessionProvider extends WebviewBaseSessionProvide
         );
 
         this.telemetryService = SunbirdSdk.instance.telemetryService;
-        this.webviewRunner = webviewRunner || new WebviewRunnerImpl();
+        this.webviewRunner = webviewRunner || (getSdkPlatform() === 'capacitor' ? new WebviewRunnerCapacitorImpl() : new WebviewRunnerImpl());
     }
 
     public async provide(): Promise<OAuthSession> {
