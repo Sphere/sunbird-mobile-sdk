@@ -4,6 +4,8 @@ import {WebviewRunner} from '../def/webview-runner';
 import {TelemetryService} from '../../../../telemetry';
 import {SunbirdSdk} from '../../../../sdk';
 import {WebviewRunnerImpl} from './webview-runner-impl';
+import {WebviewRunnerCapacitorImpl} from './webview-runner-capacitor-impl';
+import { getSdkPlatform } from '../../../../util/platform/platform-util';
 import {WebviewStateSessionProviderConfig} from '../def/webview-state-session-provider-config';
 import {SignInError} from '../../../errors/sign-in-error';
 import {WebviewAutoMergeSessionProvider} from './webview-auto-merge-session-provider';
@@ -29,7 +31,7 @@ export class WebviewStateSessionProvider extends WebviewBaseSessionProvider {
             SunbirdSdk.instance.eventsBusService
         );
         this.telemetryService = SunbirdSdk.instance.telemetryService;
-        this.webViewRunner = webviewRunner || new WebviewRunnerImpl();
+        this.webViewRunner = webviewRunner || (getSdkPlatform() === 'capacitor' ? new WebviewRunnerCapacitorImpl() : new WebviewRunnerImpl());
     }
 
     public async provide(): Promise<OAuthSession> {

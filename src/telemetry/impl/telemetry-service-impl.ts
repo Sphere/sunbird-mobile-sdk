@@ -30,6 +30,7 @@ import {TelemetryConfig} from '../config/telemetry-config';
 import {DeviceInfo} from '../../util/device';
 import {EventNamespace, EventsBusService} from '../../events-bus';
 import {FileService} from '../../util/file/def/file-service';
+import {getSdkPlatform} from '../../util/platform/platform-util';
 import {ValidateTelemetryMetadata} from '../handler/import/validate-telemetry-metadata';
 import {TelemetryEventType} from '../def/telemetry-event';
 import {TransportProcessedTelemetry} from '../handler/import/transport-processed-telemetry';
@@ -409,6 +410,11 @@ export class TelemetryServiceImpl implements TelemetryService, SdkServiceOnInitD
     }
 
     private getInitialUtmParameters(): Promise<CorrelationData[]> {
+        if (getSdkPlatform() === 'capacitor') {
+            // No Capacitor equivalent of the Play Store install-referrer API yet — analytics-only,
+            // non-blocking. Known gap; revisit if/when a Capacitor install-referrer plugin exists.
+            return Promise.resolve([]);
+        }
         return new Promise<CorrelationData[]>((resolve, reject) => {
             try {
                 sbutility.getUtmInfo((response: { val: CorrelationData[] }) => {

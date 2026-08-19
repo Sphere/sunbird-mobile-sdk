@@ -2,11 +2,14 @@ import {OAuthSession, SignInError} from '../../..';
 import {WebviewSessionProviderConfig} from '../../..';
 import {WebviewRunner} from '../def/webview-runner';
 import {WebviewRunnerImpl} from './webview-runner-impl';
+import {WebviewRunnerCapacitorImpl} from './webview-runner-capacitor-impl';
+import { getSdkPlatform } from '../../../../util/platform/platform-util';
 import {SunbirdSdk} from '../../../../sdk';
 import {WebviewAutoMergeSessionProvider} from './webview-auto-merge-session-provider';
 import {WebviewBaseSessionProvider} from './webview-base-session-provider';
 import {TelemetryService} from '../../../../telemetry';
 
+import { getPlatform } from '../../../../util/platform/platform-util';
 interface ParamMap { [key: string]: string; }
 
 export class WebviewLoginSessionProvider extends WebviewBaseSessionProvider {
@@ -28,7 +31,7 @@ export class WebviewLoginSessionProvider extends WebviewBaseSessionProvider {
         );
 
         this.telemetryService = SunbirdSdk.instance.telemetryService;
-        this.webviewRunner = webviewRunner || new WebviewRunnerImpl();
+        this.webviewRunner = webviewRunner || (getSdkPlatform() === 'capacitor' ? new WebviewRunnerCapacitorImpl() : new WebviewRunnerImpl());
     }
 
     public async provide(): Promise<OAuthSession> {
@@ -42,7 +45,7 @@ export class WebviewLoginSessionProvider extends WebviewBaseSessionProvider {
            key: 'pdata',
            value: JSON.stringify(telemetryContext.pdata)
         });
-        if(window.device.platform.toLowerCase() === 'ios' && this.loginConfig.context === "login") {
+        if(getPlatform() === 'ios' && this.loginConfig.context === "login") {
             await dsl.launchWebview({
                 host: this.loginConfig.target.host,
                 path: 'logoff',

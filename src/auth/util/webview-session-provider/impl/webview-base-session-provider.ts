@@ -5,6 +5,7 @@ import {SessionProvider} from '../../../def/session-provider';
 import {OAuthSession} from '../../../def/o-auth-session';
 import {SignInError} from '../../../errors/sign-in-error';
 import { JwtUtil } from '../../../../util/jwt-util';
+import { getPlatform } from '../../../../util/platform/platform-util';
 
 export abstract class WebviewBaseSessionProvider implements SessionProvider {
     private static async parseAccessToken(accessToken: string): Promise<{
@@ -136,7 +137,7 @@ export abstract class WebviewBaseSessionProvider implements SessionProvider {
 
     private resolveStateSession(captured: {[key: string]: string}): Promise<OAuthSession> {
         const apiUrl="/v1/sso/create/session?id="
-        let params = window.device.platform.toLowerCase() ==='ios' ? encodeURIComponent(captured.id) :captured['id'];
+        let params = getPlatform() ==='ios' ? encodeURIComponent(captured.id) :captured['id'];
         const completeUrl = apiUrl + params;
         const apiRequest: Request = new Request.Builder()
             .withType(HttpRequestType.GET)

@@ -6,6 +6,7 @@ import { ExistingContentAction } from '../..';
 import {ContentStorageHandler} from '../../../content/handlers/content-storage-handler';
 import { CancellationError } from '../../errors/cancellation-error';
 import { LowMemoryError } from '../../errors/low-memory-error';
+import { FileService } from '../../../util/file/def/file-service';
 
 declare const sbutility;
 jest.mock('../../../content/handlers/content-storage-handler');
@@ -13,10 +14,12 @@ jest.mock('../../../content/handlers/content-storage-handler');
 describe('DeviceMemoryCheck', () => {
     let deviceMemoryCheck: DeviceMemoryCheck;
     const mockDbService: Partial<DbService> = {};
+    const mockFileService: Partial<FileService> = {};
 
     beforeAll(() => {
         deviceMemoryCheck = new DeviceMemoryCheck(
-            mockDbService as DbService
+            mockDbService as DbService,
+            mockFileService as FileService
         );
     });
 

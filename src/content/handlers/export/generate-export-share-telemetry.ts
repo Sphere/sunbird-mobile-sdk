@@ -1,4 +1,5 @@
 import { FilePathService } from '../../../services/file-path/file-path.service';
+import { getPlatform } from '../../../util/platform/platform-util';
 import {ContentExportResponse, ExportContentContext, ContentExportRequest} from '../..';
 import {Response} from '../../../api';
 import {Item, ShareDirection, ShareItemType, ShareType, TelemetryService, TelemetryShareRequest} from '../../../telemetry';
@@ -29,7 +30,7 @@ export class GenerateExportShareTelemetry {
             env: 'sdk'
         };
 
-        const platform = window.device.platform.toLowerCase();
+        const platform = getPlatform();
         const filePath = (platform === 'ios') ? FilePaths.DOCUMENTS : FilePaths.CACHE;
 
         try {

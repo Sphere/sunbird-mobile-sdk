@@ -1,3 +1,4 @@
+import { getPlatform } from '../../platform/platform-util';
 import {
     DownloadCancelRequest,
     DownloadEventType,
@@ -239,7 +240,7 @@ export class DownloadServiceImpl implements DownloadService, SdkServiceOnInitDel
                         });
                     }).pipe(
                         tap(async (downloadId) => {
-                            const platform =  window.device.platform.toLowerCase();
+                            const platform = getPlatform();
                             const storagePath = platform === 'ios' ? FilePaths.DOCUMENTS : FilePaths.EXTERNAL;
                             const dataDirectory = await FilePathService.getFilePath(storagePath);
                             anyDownloadRequest.downloadedFilePath = dataDirectory +

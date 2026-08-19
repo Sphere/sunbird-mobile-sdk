@@ -1,5 +1,7 @@
 import { TransferContentContext } from '../transfer-content-handler';
 import { FileService } from '../../../util/file/def/file-service';
+import { getSdkPlatform } from '../../../util/platform/platform-util';
+import { Path } from '../../../util/file/util/path';
 import { defer, Observable } from 'rxjs';
 
 export class ValidateDestinationFolder {
@@ -16,6 +18,12 @@ export class ValidateDestinationFolder {
     }
 
     private validate(destinationDirectory: string): Promise<string> {
+        if (getSdkPlatform() === 'capacitor') {
+            // Normalize once here so both canWrite() and the createDirectory() call chained
+            // after it operate on a full file:// URI, which @capacitor/filesystem requires
+            // when no `directory` option is given.
+            destinationDirectory = Path.ensureFileUri(destinationDirectory);
+        }
         return this.canWrite(destinationDirectory).then(() => {
             if (!destinationDirectory.endsWith('content/')) {
                 destinationDirectory = destinationDirectory.concat('content');
@@ -40,6 +48,12 @@ export class ValidateDestinationFolder {
     }
 
     private async canWrite(directory: string): Promise<undefined> {
+        if (getSdkPlatform() === 'capacitor') {
+            // No direct canWrite() in @capacitor/filesystem; createDir() is idempotent
+            // (no-op if the directory already exists) and doubles as a real writability probe.
+            await this.fileService.createDir(directory, false);
+            return undefined;
+        }
         return new Promise<undefined>((resolve: (value: undefined) => void, reject) => {
             sbutility.canWrite(directory, () => {
                 resolve(undefined);

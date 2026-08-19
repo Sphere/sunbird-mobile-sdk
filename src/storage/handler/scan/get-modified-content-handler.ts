@@ -6,6 +6,7 @@ import {ContentUtil} from '../../../content/util/content-util';
 import {ArrayUtil} from '../../../util/array-util';
 import {defer, Observable} from 'rxjs';
 import {map, mapTo} from 'rxjs/operators';
+import { getPlatform } from '../../../util/platform/platform-util';
 
 export class GetModifiedContentHandler {
     constructor(private fileService: FileService,
@@ -18,7 +19,7 @@ export class GetModifiedContentHandler {
             const dbContentIdentifiers = await this.getContentsInDb();
             if (context.currentStoragePath) {
                 let destination = ContentUtil.getContentRootDir(context.currentStoragePath).concat('/');
-                if(window.device.platform.toLowerCase() === "ios") {
+                if(getPlatform() === "ios") {
                     destination = "file://"+destination;
                 }
                 const folderList = await this.getFolderList(destination);

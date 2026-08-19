@@ -90,7 +90,7 @@ export class TransferContentHandler {
                 return new DeleteDestinationFolder().execute(transferContext);
             }),
             mergeMap((transferContext: TransferContentContext) => {
-                return new DeviceMemoryCheck(this.dbService).execute(transferContext);
+                return new DeviceMemoryCheck(this.dbService, this.fileService).execute(transferContext);
             }),
             mergeMap((transferContext: TransferContentContext) => {
                 return new ValidateDestinationContent(this.fileService, this.sdkConfig.appConfig).execute(transferContext);
@@ -99,10 +99,10 @@ export class TransferContentHandler {
                 return new DuplicateContentCheck(this.dbService, this.fileService).execute(transferContext);
             }),
             mergeMap((transferContext: TransferContentContext) => {
-                return new CopyContentFromSourceToDestination(this.eventsBusService).execute(transferContext);
+                return new CopyContentFromSourceToDestination(this.eventsBusService, this.fileService).execute(transferContext);
             }),
             mergeMap((transferContext: TransferContentContext) => {
-                return new DeleteSourceFolder(this.eventsBusService).execute(transferContext);
+                return new DeleteSourceFolder(this.eventsBusService, this.fileService).execute(transferContext);
             }),
             mergeMap((transferContext: TransferContentContext) => {
                 return new UpdateSourceContentPathInDb(this.dbService).execute(transferContext);

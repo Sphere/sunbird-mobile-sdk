@@ -51,6 +51,8 @@ import {NetworkQueue} from '../../api/network-queue';
 import {AuthService} from '../../auth';
 import * as qs from 'qs';
 import {GetLearnerCertificateHandler} from '../handlers/get-learner-certificate-handler';
+import { getPlatform, getSdkPlatform } from '../../util/platform/platform-util';
+import { Browser } from '@capacitor/browser';
 import {LearnerCertificate} from '../def/get-learner-certificate-response';
 import {OfflineAssessmentScoreProcessor} from './offline-assessment-score-processor';
 import {GetEnrolledCourseResponse} from '../def/get-enrolled-course-response';
@@ -260,7 +262,7 @@ export class CourseServiceImpl implements CourseService {
             const activeProfile = (await this.profileService.getActiveProfileSession().toPromise());
             const userId = activeProfile.managedSession ? activeProfile.managedSession.uid : activeProfile.uid;
 
-            const platform = window.device.platform.toLowerCase();
+            const platform = getPlatform();
             const storagePath = platform === 'ios' ? FilePaths.DOCUMENTS : FilePaths.EXTERNAL_STORAGE;
             const folderPath = await FilePathService.getFilePath(storagePath);
             const filePath = `${folderPath}Download/${request.certificate.name}_${request.courseId}_${userId}.pdf`;
@@ -390,14 +392,23 @@ export class CourseServiceImpl implements CourseService {
 
             const accessToken = session.managed_access_token || session.access_token;
 
-            cordova.InAppBrowser.open(
-                CourseServiceImpl.buildUrl(this.sdkConfig.apiConfig.host, CourseServiceImpl.DISCUSSION_FORUM_ENDPOINT, {
-                    'access_token': accessToken,
-                    'returnTo': `/category/${request.forumId}`
-                }),
-                '_blank',
-                'zoom=no,clearcache=yes,clearsessioncache=yes,cleardata=yes,hideurlbar=yes,hidenavigationbuttons=true'
-            );
+            if (getSdkPlatform() === 'capacitor') {
+                Browser.open({
+                    url: CourseServiceImpl.buildUrl(this.sdkConfig.apiConfig.host, CourseServiceImpl.DISCUSSION_FORUM_ENDPOINT, {
+                        'access_token': accessToken,
+                        'returnTo': `/category/${request.forumId}`
+                    })
+                });
+            } else {
+                cordova.InAppBrowser.open(
+                    CourseServiceImpl.buildUrl(this.sdkConfig.apiConfig.host, CourseServiceImpl.DISCUSSION_FORUM_ENDPOINT, {
+                        'access_token': accessToken,
+                        'returnTo': `/category/${request.forumId}`
+                    }),
+                    '_blank',
+                    'zoom=no,clearcache=yes,clearsessioncache=yes,cleardata=yes,hideurlbar=yes,hidenavigationbuttons=true'
+                );
+            }
 
             return true;
         });

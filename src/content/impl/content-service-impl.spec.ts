@@ -8,6 +8,7 @@ import {
     ContentFeedbackService,
     ContentImport,
     ContentImportRequest,
+    ContentImportStatus,
     ContentRequest,
     ContentSearchCriteria,
     ContentService,
@@ -18,6 +19,7 @@ import {
     MarkerType,
     RelevantContentRequest,
     SearchType,
+    State,
 } from '..';
 import {ContentServiceImpl} from './content-service-impl';
 import {Container} from 'inversify';
@@ -1227,6 +1229,7 @@ describe('ContentServiceImpl', () => {
             });
             jest.spyOn(FileUtil, 'getFileExtension').mockReturnValue('ecar');
             mockDownloadService.download = jest.fn(() => of(undefined));
+            mockDbService.execute = jest.fn(() => of([]));
             // act
             contentService.importContent(request).subscribe((val) => {
                 // assert
@@ -1272,6 +1275,7 @@ describe('ContentServiceImpl', () => {
             });
             jest.spyOn(FileUtil, 'getFileExtension').mockReturnValue('epar');
             mockDownloadService.download = jest.fn(() => of(undefined));
+            mockDbService.execute = jest.fn(() => of([]));
             // act
             contentService.importContent(request).subscribe((val) => {
                 // assert
@@ -1315,6 +1319,7 @@ describe('ContentServiceImpl', () => {
             });
             jest.spyOn(FileUtil, 'getFileExtension').mockReturnValue('epar');
             mockDownloadService.download = jest.fn(() => of(undefined));
+            mockDbService.execute = jest.fn(() => of([]));
             // act
             contentService.importContent(request).subscribe(() => {
                 // assert
@@ -1356,6 +1361,114 @@ describe('ContentServiceImpl', () => {
                 // assert
                 expect(mockApiService.fetch).toHaveBeenCalled();
                 expect(getContentSearchFilterData).toHaveBeenCalled();
+                done();
+            });
+        });
+
+        it('should skip re-downloading a child that is already fully downloaded (resume scenario)', (done) => {
+            // arrange
+            const alreadyDownloadedId = 'do_ALREADY_DOWNLOADED';
+            const pendingId = 'do_PENDING';
+            const contentImport: ContentImport[] = [
+                { isChildContent: true, destinationFolder: 'SAMPLE_DESTINATION_FOLDER', contentId: alreadyDownloadedId },
+                { isChildContent: true, destinationFolder: 'SAMPLE_DESTINATION_FOLDER', contentId: pendingId }
+            ];
+            const request: ContentImportRequest = {
+                contentImportArray: contentImport,
+                contentStatusArray: ['SAMPLE_1', 'SAMPLE_2']
+            };
+            spyOn(mockApiService, 'fetch').and.returnValue(of({
+                body: {
+                    result: {
+                        response: 'SAMPLE_RESPONSE',
+                        content: [
+                            { identifier: alreadyDownloadedId, pkgVersion: 2, visibility: 'Default' },
+                            { identifier: pendingId, pkgVersion: 1, visibility: 'Default' }
+                        ]
+                    }
+                }
+            }));
+            const getDownloadUrlData = jest.fn(() => Promise.resolve('ecar'));
+            const getContentSearchFilterData = jest.fn(() => Promise.resolve({}));
+            (SearchContentHandler as jest.Mock<SearchContentHandler>).mockImplementation(() => {
+                return {
+                    getDownloadUrl: getDownloadUrlData,
+                    getContentSearchFilter: getContentSearchFilterData
+                } as any;
+            });
+            jest.spyOn(FileUtil, 'getFileExtension').mockReturnValue('ecar');
+            mockDownloadService.download = jest.fn(() => of(undefined));
+            // Only alreadyDownloadedId has a DB row, fully available, same version as the server.
+            mockDbService.execute = jest.fn(() => of([{
+                identifier: alreadyDownloadedId,
+                visibility: 'Default',
+                content_state: State.ARTIFACT_AVAILABLE,
+                local_data: JSON.stringify({ pkgVersion: 2 })
+            }]));
+            // act
+            contentService.importContent(request).subscribe((val) => {
+                // assert
+                const alreadyDownloadedResponse = val.find((r) => r.identifier === alreadyDownloadedId);
+                const pendingResponse = val.find((r) => r.identifier === pendingId);
+                expect(alreadyDownloadedResponse!.status).toBe(ContentImportStatus.ALREADY_EXIST);
+                expect(pendingResponse!.status).toBe(ContentImportStatus.ENQUEUED_FOR_DOWNLOAD);
+
+                const downloadedIdentifiers = (mockDownloadService.download as jest.Mock).mock.calls[0][0]
+                    .map((r: any) => r.identifier);
+                expect(downloadedIdentifiers).not.toContain(alreadyDownloadedId);
+                expect(downloadedIdentifiers).toContain(pendingId);
+                done();
+            });
+        });
+
+        it('should re-download a sibling whose DB row is only a spine from another content\'s import' +
+            ' (resume scenario)', (done) => {
+            // arrange — do_SPINE_ONLY has a content_entry row (written as a side effect of a sibling's
+            // ecar manifest extraction) but its own artifact was never downloaded, so content_state
+            // is ONLY_SPINE rather than ARTIFACT_AVAILABLE.
+            const spineOnlyId = 'do_SPINE_ONLY';
+            const contentImport: ContentImport[] = [
+                { isChildContent: true, destinationFolder: 'SAMPLE_DESTINATION_FOLDER', contentId: spineOnlyId }
+            ];
+            const request: ContentImportRequest = {
+                contentImportArray: contentImport,
+                contentStatusArray: ['SAMPLE_1']
+            };
+            spyOn(mockApiService, 'fetch').and.returnValue(of({
+                body: {
+                    result: {
+                        response: 'SAMPLE_RESPONSE',
+                        content: [
+                            { identifier: spineOnlyId, pkgVersion: 1, visibility: 'Default' }
+                        ]
+                    }
+                }
+            }));
+            const getDownloadUrlData = jest.fn(() => Promise.resolve('ecar'));
+            const getContentSearchFilterData = jest.fn(() => Promise.resolve({}));
+            (SearchContentHandler as jest.Mock<SearchContentHandler>).mockImplementation(() => {
+                return {
+                    getDownloadUrl: getDownloadUrlData,
+                    getContentSearchFilter: getContentSearchFilterData
+                } as any;
+            });
+            jest.spyOn(FileUtil, 'getFileExtension').mockReturnValue('ecar');
+            mockDownloadService.download = jest.fn(() => of(undefined));
+            mockDbService.execute = jest.fn(() => of([{
+                identifier: spineOnlyId,
+                visibility: 'Default',
+                content_state: State.ONLY_SPINE,
+                local_data: JSON.stringify({ pkgVersion: 1 })
+            }]));
+            // act
+            contentService.importContent(request).subscribe((val) => {
+                // assert
+                const response = val.find((r) => r.identifier === spineOnlyId);
+                expect(response!.status).toBe(ContentImportStatus.ENQUEUED_FOR_DOWNLOAD);
+
+                const downloadedIdentifiers = (mockDownloadService.download as jest.Mock).mock.calls[0][0]
+                    .map((r: any) => r.identifier);
+                expect(downloadedIdentifiers).toContain(spineOnlyId);
                 done();
             });
         });

@@ -6,6 +6,7 @@ import {OAuthSession} from '../../../def/o-auth-session';
 import {SunbirdSdk} from '../../../../sdk';
 import {CsModule} from '@project-sunbird/client-services';
 import { JwtUtil } from '../../../../util/jwt-util';
+import { getPlatform } from '../../../../util/platform/platform-util';
 
 export interface NativeAppleTokens {
     email: string;
@@ -54,7 +55,7 @@ export class NativeAppleSessionProvider implements SessionProvider {
     }
 
     private callAppleNativeLogin(appleSignInRes): Observable<any> {
-        const platform = window.device.platform.toLowerCase() === 'ios' ? 'ios' : null;
+        const platform = getPlatform() === 'ios' ? 'ios' : null;
         const apiRequest: Request = new Request.Builder()
             .withType(HttpRequestType.POST)
             .withPath(NativeAppleSessionProvider.LOGIN_API_ENDPOINT)

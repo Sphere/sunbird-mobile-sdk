@@ -2,10 +2,12 @@ import {ContentErrorCode, ExportContentContext} from '../..';
 import {ContentEntry} from '../../db/schema';
 import {ContentUtil} from '../../util/content-util';
 import {Response} from '../../../api';
+import {FileService} from '../../../util/file/def/file-service';
+import {getSdkPlatform} from '../../../util/platform/platform-util';
 
 export class CopyAsset {
 
-    constructor() {
+    constructor(private fileService?: FileService) {
     }
 
     public async execute(exportContentContext: ExportContentContext): Promise<Response> {
@@ -78,6 +80,10 @@ export class CopyAsset {
     }
 
     private async copyFile(sourcePath: string, destinationPath: string, fileName: string): Promise<boolean> {
+        if (getSdkPlatform() === 'capacitor') {
+            await this.fileService!.copyFile(sourcePath, fileName, destinationPath, fileName);
+            return true;
+        }
         return new Promise<boolean>((resolve, reject) => {
             sbutility.copyFile(sourcePath, destinationPath, fileName,
                 () => {

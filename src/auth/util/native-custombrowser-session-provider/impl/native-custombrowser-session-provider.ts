@@ -4,6 +4,8 @@ import { SunbirdSdk } from '../../../../sdk';
 import { WebviewSessionProviderConfig } from '../../webview-session-provider/def/webview-session-provider-config';
 import { WebviewRunner } from '../../webview-session-provider/def/webview-runner';
 import { WebviewRunnerImpl } from '../../webview-session-provider/impl/webview-runner-impl';
+import { WebviewRunnerCapacitorImpl } from '../../webview-session-provider/impl/webview-runner-capacitor-impl';
+import { getSdkPlatform } from '../../../../util/platform/platform-util';
 import { TelemetryService } from 'src/telemetry/def/telemetry-service';
 import * as qs from 'qs';
 import { JwtUtil } from '../../../../util/jwt-util';
@@ -33,7 +35,7 @@ export class NativeCustomBrowserSessionProvider implements SessionProvider {
     ) {
         this.apiConfig = SunbirdSdk.instance.sdkConfig.apiConfig;
         this.telemetryService = SunbirdSdk.instance.telemetryService;
-        this.webviewRunner = webviewRunner || new WebviewRunnerImpl();
+        this.webviewRunner = webviewRunner || (getSdkPlatform() === 'capacitor' ? new WebviewRunnerCapacitorImpl() : new WebviewRunnerImpl());
     }
 
     protected buildGoogleTargetUrl(redirecturl: {[key: string]: string}, extras: {[key: string]: string}): URL {

@@ -18,6 +18,7 @@ import { ProducerData, ShareDirection, ShareType, TelemetryService, TelemetrySha
 import { ZipService } from '../../util/zip/def/zip-service';
 import { InvalidRequestError } from '..';
 import { TelemetryImportDelegate } from '../import/impl/telemetry-import-delegate';
+import { getPlatform, getSdkPlatform } from '../../util/platform/platform-util';
 import { InvalidArchiveError } from '../import/error/invalid-archive-error';
 import { TelemetryArchivePackageMeta } from '../export/def/telemetry-archive-package-meta';
 import { FileUtil } from '../../util/file/util/file-util';
@@ -80,7 +81,7 @@ export class ArchiveServiceImpl implements ArchiveService {
 
     export(exportRequest: ArchiveExportRequest): Observable<ArchiveExportProgress> {
         return defer(async () => {
-            const platform = window.device.platform.toLowerCase();
+            const platform = getPlatform();
             const storagePath = platform === 'ios' ? FilePaths.DOCUMENTS : FilePaths.CACHE;
             const folderUri = await FilePathService.getFilePath(storagePath);
             return { folderUri };
@@ -178,7 +179,7 @@ export class ArchiveServiceImpl implements ArchiveService {
 
     private generateZipArchive(progress: ArchiveExportProgress, workspacePath: string): Observable<ArchiveExportProgress> {
         return defer(async () => {
-            const platform = window.device.platform.toLowerCase();
+            const platform = getPlatform();
             const storagePath = platform === 'ios' ? FilePaths.DOCUMENTS : FilePaths.CACHE;
             const folderPath = await FilePathService.getFilePath(storagePath);
             const zipFilePath = `${folderPath}archive-${new Date().toISOString()}.zip`;
@@ -262,7 +263,7 @@ export class ArchiveServiceImpl implements ArchiveService {
         };
 
         return defer(async () => {
-            const platform = window.device.platform.toLowerCase();
+            const platform = getPlatform();
             const storagePath = platform === 'ios' ? FilePaths.DOCUMENTS : FilePaths.CACHE;
             const folderUri = await FilePathService.getFilePath(storagePath);
             const workspacePath = `${folderUri}${UniqueId.generateUniqueId()}`;
@@ -369,26 +370,34 @@ export class ArchiveServiceImpl implements ArchiveService {
 
     private extractZipArchive(progress: ArchiveImportProgress, workspacePath: string): Observable<ArchiveImportProgress> {
         const filePath = progress.filePath!;
+        const sourceDirectory = FileUtil.getDirecory(filePath);
+        const fileName = FileUtil.getFileName(filePath);
+        const destinationDirectory = `${workspacePath}/`;
+
         return new Observable((observer) => {
-            sbutility.copyFile(
-                FileUtil.getDirecory(filePath),
-                `${workspacePath}/`,
-                FileUtil.getFileName(filePath),
-                () => {
-                    this.zipService.unzip(
-                        `${workspacePath}/${FileUtil.getFileName(filePath)}`,
-                        { target: workspacePath + '/' },
-                        () => {
-                            observer.next();
-                            observer.complete();
-                        }, (e) => observer.error(e)
-                    );
-                },
-                (e) => {
-                    console.error(e);
-                    observer.error(e);
-                }
-            );
+            const onCopied = () => {
+                this.zipService.unzip(
+                    `${workspacePath}/${fileName}`,
+                    { target: workspacePath + '/' },
+                    () => {
+                        observer.next();
+                        observer.complete();
+                    }, (e) => observer.error(e)
+                );
+            };
+            const onCopyError = (e) => {
+                console.error(e);
+                observer.error(e);
+            };
+
+            if (getSdkPlatform() === 'capacitor') {
+                this.fileService.copyFile(sourceDirectory, fileName, destinationDirectory, fileName)
+                    .then(onCopied)
+                    .catch(onCopyError);
+                return;
+            }
+
+            sbutility.copyFile(sourceDirectory, destinationDirectory, fileName, onCopied, onCopyError);
         }).pipe(
             mapTo({
                 ...progress,

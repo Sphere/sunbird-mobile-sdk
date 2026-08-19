@@ -21,6 +21,7 @@ import { ZipService } from '../../../util/zip/def/zip-service';
 import { AppConfig } from '../../../api/config/app-config';
 import { FileUtil } from '../../../util/file/util/file-util';
 import { DeviceInfo } from '../../../util/device';
+import { getPlatform, getSdkPlatform } from '../../../util/platform/platform-util';
 import { EventNamespace, EventsBusService } from '../../../events-bus';
 import dayjs from 'dayjs';
 import { ArrayUtil } from '../../../util/array-util';
@@ -129,9 +130,9 @@ export class ExtractPayloads {
             }
             if (ContentUtil.isNotUnit(mimeType, visibility)) {
                 if (createdDirectories[identifier] && createdDirectories[identifier].path) {
-                    payloadDestination = (window.device.platform.toLowerCase() === "ios") ? createdDirectories[identifier].path!.concat("/") : createdDirectories[identifier].path;
+                    payloadDestination = (getPlatform() === "ios") ? createdDirectories[identifier].path!.concat("/") : createdDirectories[identifier].path;
                 } else {
-                    let payloadDirectory = (window.device.platform.toLowerCase() === "ios") ?
+                    let payloadDirectory = (getPlatform() === "ios") ?
                         ContentUtil.getContentRootDir(importContext.destinationFolder).concat(identifier) :
                         ContentUtil.getContentRootDir(importContext.destinationFolder).concat('/', identifier);
                     const payloadDestinationDirectoryEntry: any = await this.fileService.createDir(payloadDirectory
@@ -348,7 +349,7 @@ export class ExtractPayloads {
                 }
 
                 // * only in case of iOS ****
-                if (window.device.platform.toLowerCase() === "ios") {
+                if (getPlatform() === "ios") {
                     // * checking if file exist, then delete the file
                     await this.fileService.exists(payloadDestinationPath.concat('/', asset))
                         .then(async entry => {
@@ -482,9 +483,25 @@ export class ExtractPayloads {
     // TODO: move this method to file-service
     private async createDirectories(parentDirectoryPath: string,
         listOfFolder: string[]): Promise<{ [key: string]: { path: string | undefined } }> {
+        parentDirectoryPath = (getPlatform() === "ios") ? parentDirectoryPath.concat('/') : parentDirectoryPath;
+
+        if (getSdkPlatform() === 'capacitor') {
+            // @capacitor/filesystem requires a full file:// URI when no `directory` option is
+            // given (see its README: "leave out the directory param to use a full file path").
+            // Unlike the native sbutility.createDirectories call below, do NOT strip the
+            // scheme via ContentUtil.getBasePath() here — matches the sibling createDir() call
+            // a few lines down in this file, which also keeps the file:// prefix intact.
+            const result: { [key: string]: { path: string | undefined } } = {};
+            for (const folder of listOfFolder) {
+                const dirEntry = await this.fileService.createDir(`${parentDirectoryPath}/${folder}`, false);
+                result[folder] = { path: dirEntry.nativeURL };
+            }
+            return result;
+        }
+
+        const basePath = ContentUtil.getBasePath(parentDirectoryPath);
         return new Promise<{ [key: string]: { path: string | undefined } }>((resolve, reject) => {
-            parentDirectoryPath = (window.device.platform.toLowerCase() === "ios") ? parentDirectoryPath.concat('/') : parentDirectoryPath;
-            sbutility.createDirectories(ContentUtil.getBasePath(parentDirectoryPath), listOfFolder,
+            sbutility.createDirectories(basePath, listOfFolder,
                 (entry) => {
                     resolve(entry);
                 }, err => {

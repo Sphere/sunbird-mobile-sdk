@@ -6,6 +6,7 @@ import { FileService } from '../../util/file/def/file-service';
 import { Path } from '../../util/file/util/path';
 import { catchError, map, switchMap } from 'rxjs/operators';
 import { throwError as rxjsThrowError } from 'rxjs';
+import { getPlatform } from '../../util/platform/platform-util';
 
 export class GetFormHandler implements ApiRequestHandler<FormRequest, { [key: string]: {} }> {
     private readonly FORM_FILE_KEY_PREFIX = 'form-';
@@ -54,7 +55,7 @@ export class GetFormHandler implements ApiRequestHandler<FormRequest, { [key: st
             .withPath(this.formServiceConfig.apiPath + this.GET_FORM_DETAILS_ENDPOINT)
             .withBearerToken(true)
             .withHeaders({
-                'X-Platform-Id': window.device.platform
+                'X-Platform-Id': getPlatform()
             })
             .withBody({ request })
             .build();

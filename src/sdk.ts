@@ -5,6 +5,7 @@ import {TelemetryDecorator, TelemetryService} from './telemetry';
 import {SharedPreferences} from './util/shared-preferences';
 import {SdkConfig} from './sdk-config';
 import {DbCordovaService} from './db/impl/db-cordova-service';
+import {DbServiceCapacitorImpl} from './db/impl/db-service-capacitor-impl';
 import {TelemetryDecoratorImpl} from './telemetry/impl/decorator-impl';
 import {TelemetryServiceImpl} from './telemetry/impl/telemetry-service-impl';
 import {AuthServiceImpl} from './auth/impl/auth-service-impl';
@@ -23,6 +24,7 @@ import {PageAssembleService, PageServiceConfig} from './page';
 import {PageAssembleServiceImpl} from './page/impl/page-assemble-service-impl';
 import {SharedPreferencesLocalStorage} from './util/shared-preferences/impl/shared-preferences-local-storage';
 import {SharedPreferencesAndroid} from './util/shared-preferences/impl/shared-preferences-android';
+import {SharedPreferencesCapacitorImpl} from './util/shared-preferences/impl/shared-preferences-capacitor-impl';
 import {FileServiceImpl} from './util/file/impl/file-service-impl';
 import {ProfileSyllabusMigration} from './db/migrations/profile-syllabus-migration';
 import {GroupProfileMigration} from './db/migrations/group-profile-migration';
@@ -34,15 +36,20 @@ import {SystemSettingsService, SystemSettingsServiceImpl} from './system-setting
 import {ZipService} from './util/zip/def/zip-service';
 import {DeviceInfo} from './util/device';
 import {ZipServiceImpl} from './util/zip/impl/zip-service-impl';
+import {ZipServiceCapacitorImpl} from './util/zip/impl/zip-service-capacitor-impl';
 import {DeviceInfoImpl} from './util/device/impl/device-info-impl';
+import {CapacitorDeviceInfoImpl} from './util/device/impl/capacitor-device-info-impl';
+import {initPlatformUtil, getDeviceId, getPlatform} from './util/platform/platform-util';
 import {ContentFeedbackServiceImpl} from './content/impl/content-feedback-service-impl';
 import {EventsBusService} from './events-bus';
 import {EventsBusServiceImpl} from './events-bus/impl/events-bus-service-impl';
 import {SummarizerService, SummarizerServiceImpl} from './summarizer';
 import {DownloadService} from './util/download';
 import {DownloadServiceImpl} from './util/download/impl/download-service-impl';
+import {DownloadServiceCapacitorImpl} from './util/download/impl/download-service-capacitor-impl';
 import {AppInfo} from './util/app';
 import {AppInfoImpl} from './util/app/impl/app-info-impl';
+import {AppInfoCapacitorImpl} from './util/app/impl/app-info-capacitor-impl';
 import {PlayerService, PlayerServiceImpl} from './player';
 import {TelemetryConfig} from './telemetry/config/telemetry-config';
 import {OfflineSearchTextbookMigration} from './db/migrations/offline-search-textbook-migration';
@@ -56,6 +63,7 @@ import {ErrorLoggerService} from './error';
 import {ErrorLoggerServiceImpl} from './error/impl/error-logger-service-impl';
 import {NetworkInfoService} from './util/network';
 import {NetworkInfoServiceImpl} from './util/network/impl/network-info-service-impl';
+import {NetworkInfoCapacitorServiceImpl} from './util/network/impl/network-info-capacitor-service-impl';
 import {SearchHistoryMigration} from './db/migrations/search-history-migration';
 import {SearchHistoryService} from './util/search-history';
 import {SearchHistoryServiceImpl} from './util/search-history/impl/search-history-service-impl';
@@ -73,7 +81,6 @@ import {NetworkQueueImpl} from './api/network-queue/impl/network-queue-impl';
 import {NetworkQueue} from './api/network-queue';
 import {CsModule} from '@project-sunbird/client-services';
 import {CsHttpService} from '@project-sunbird/client-services/core/http-service';
-import * as SHA1 from 'crypto-js/sha1';
 import {CsGroupService} from '@project-sunbird/client-services/services/group';
 import {CsCourseService} from '@project-sunbird/client-services/services/course';
 import {GroupService} from './group';
@@ -274,6 +281,12 @@ export class SunbirdSdk {
     }
 
     public async init(sdkConfig: SdkConfig) {
+        await initPlatformUtil(sdkConfig.platform);
+        // Build stamp — bump the date suffix on every SDK rebuild handed to the host app, so a
+        // stale-webview/stale-node_modules build is immediately identifiable from the console.
+        console.log('[sunbird-sdk] init — build 2026-07-13-1, sdkPlatform:', sdkConfig.platform,
+            'osPlatform:', getPlatform(), 'deviceId:', getDeviceId());
+
         this._container = new Container();
 
         this._container.bind<Container>(InjectionTokens.CONTAINER).toConstantValue(this._container);
@@ -311,25 +324,36 @@ export class SunbirdSdk {
                     .to(SharedPreferencesLocalStorage).inSingletonScope();
                 break;
             case 'capacitor':
-                // Placeholder: replaced with SharedPreferencesCapacitor in the SharedPreferences migration phase.
                 this._container.bind<SharedPreferences>(InjectionTokens.SHARED_PREFERENCES)
-                    .to(SharedPreferencesLocalStorage).inSingletonScope();
+                    .to(SharedPreferencesCapacitorImpl).inSingletonScope();
                 break;
             default:
                 throw new Error('FATAL_ERROR: Invalid platform');
         }
 
-        this._container.bind<DbService>(InjectionTokens.DB_SERVICE).to(DbCordovaService).inSingletonScope();
+        if (sdkConfig.platform === 'capacitor') {
+            this._container.bind<DbService>(InjectionTokens.DB_SERVICE).to(DbServiceCapacitorImpl).inSingletonScope();
+        } else {
+            this._container.bind<DbService>(InjectionTokens.DB_SERVICE).to(DbCordovaService).inSingletonScope();
+        }
 
         this._container.bind<FileService>(InjectionTokens.FILE_SERVICE).to(FileServiceImpl).inSingletonScope();
 
         this._container.bind<SdkConfig>(InjectionTokens.SDK_CONFIG).toConstantValue(sdkConfig);
 
-        this._container.bind<DeviceInfo>(InjectionTokens.DEVICE_INFO).to(DeviceInfoImpl).inSingletonScope();
+        if (sdkConfig.platform === 'capacitor') {
+            this._container.bind<DeviceInfo>(InjectionTokens.DEVICE_INFO).to(CapacitorDeviceInfoImpl).inSingletonScope();
+        } else {
+            this._container.bind<DeviceInfo>(InjectionTokens.DEVICE_INFO).to(DeviceInfoImpl).inSingletonScope();
+        }
 
         this._container.bind<EventsBusService>(InjectionTokens.EVENTS_BUS_SERVICE).to(EventsBusServiceImpl).inSingletonScope();
 
-        this._container.bind<AppInfo>(InjectionTokens.APP_INFO).to(AppInfoImpl).inSingletonScope();
+        if (sdkConfig.platform === 'capacitor') {
+            this._container.bind<AppInfo>(InjectionTokens.APP_INFO).to(AppInfoCapacitorImpl).inSingletonScope();
+        } else {
+            this._container.bind<AppInfo>(InjectionTokens.APP_INFO).to(AppInfoImpl).inSingletonScope();
+        }
 
         this._container.bind<ApiService>(InjectionTokens.API_SERVICE).to(ApiServiceImpl).inSingletonScope();
 
@@ -350,7 +374,11 @@ export class SunbirdSdk {
 
         this._container.bind<ErrorLoggerService>(InjectionTokens.ERROR_LOGGER_SERVICE).to(ErrorLoggerServiceImpl).inSingletonScope();
 
-        this._container.bind<ZipService>(InjectionTokens.ZIP_SERVICE).to(ZipServiceImpl).inSingletonScope();
+        if (sdkConfig.platform === 'capacitor') {
+            this._container.bind<ZipService>(InjectionTokens.ZIP_SERVICE).to(ZipServiceCapacitorImpl).inSingletonScope();
+        } else {
+            this._container.bind<ZipService>(InjectionTokens.ZIP_SERVICE).to(ZipServiceImpl).inSingletonScope();
+        }
 
         this._container.bind<TelemetryService>(InjectionTokens.TELEMETRY_SERVICE).to(TelemetryServiceImpl).inSingletonScope();
 
@@ -363,7 +391,11 @@ export class SunbirdSdk {
 
         this._container.bind<FrameworkUtilService>(InjectionTokens.FRAMEWORK_UTIL_SERVICE).to(FrameworkUtilServiceImpl).inSingletonScope();
 
-        this._container.bind<DownloadService>(InjectionTokens.DOWNLOAD_SERVICE).to(DownloadServiceImpl).inSingletonScope();
+        if (sdkConfig.platform === 'capacitor') {
+            this._container.bind<DownloadService>(InjectionTokens.DOWNLOAD_SERVICE).to(DownloadServiceCapacitorImpl).inSingletonScope();
+        } else {
+            this._container.bind<DownloadService>(InjectionTokens.DOWNLOAD_SERVICE).to(DownloadServiceImpl).inSingletonScope();
+        }
 
         this._container.bind<ContentService>(InjectionTokens.CONTENT_SERVICE).to(ContentServiceImpl).inSingletonScope();
 
@@ -381,7 +413,11 @@ export class SunbirdSdk {
 
         this._container.bind<NotificationService>(InjectionTokens.NOTIFICATION_SERVICE).to(NotificationServiceImpl).inSingletonScope();
 
-        this._container.bind<NetworkInfoService>(InjectionTokens.NETWORKINFO_SERVICE).to(NetworkInfoServiceImpl).inSingletonScope();
+        if (sdkConfig.platform === 'capacitor') {
+            this._container.bind<NetworkInfoService>(InjectionTokens.NETWORKINFO_SERVICE).to(NetworkInfoCapacitorServiceImpl).inSingletonScope();
+        } else {
+            this._container.bind<NetworkInfoService>(InjectionTokens.NETWORKINFO_SERVICE).to(NetworkInfoServiceImpl).inSingletonScope();
+        }
 
         this._container.bind<SearchHistoryService>(InjectionTokens.SEARCH_HISTORY_SERVICE).to(SearchHistoryServiceImpl).inSingletonScope();
 
@@ -417,7 +453,7 @@ export class SunbirdSdk {
                     global: {
                         channelId: sdkConfig.apiConfig.api_authentication.channelId,
                         producerId: sdkConfig.apiConfig.api_authentication.producerId,
-                        deviceId: SHA1(window.device.uuid).toString()
+                        deviceId: getDeviceId()
                     },
                     api: {
                         host: sdkConfig.apiConfig.host,

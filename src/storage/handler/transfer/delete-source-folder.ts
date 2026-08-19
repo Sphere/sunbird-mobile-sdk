@@ -6,9 +6,13 @@ import COLUMN_NAME_IDENTIFIER = ContentEntry.COLUMN_NAME_IDENTIFIER;
 import COLUMN_NAME_PATH = ContentEntry.COLUMN_NAME_PATH;
 import {ArrayUtil} from '../../../util/array-util';
 import {defer, Observable} from 'rxjs';
+import {FileService} from '../../../util/file/def/file-service';
+import {Path} from '../../../util/file/util/path';
+import {getSdkPlatform} from '../../../util/platform/platform-util';
+import {Filesystem} from '@capacitor/filesystem';
 
 export class DeleteSourceFolder {
-    constructor(private eventsBusService: EventsBusService) {
+    constructor(private eventsBusService: EventsBusService, private fileService: FileService) {
     }
 
     execute(context: TransferContentContext): Observable<TransferContentContext> {
@@ -76,6 +80,10 @@ export class DeleteSourceFolder {
         if (!deletedirectory) {
             return;
         }
+        if (getSdkPlatform() === 'capacitor') {
+            await this.fileService.removeRecursively(Path.ensureFileUri(deletedirectory));
+            return undefined;
+        }
         return new Promise<undefined>((resolve, reject) => {
             let res;
             sbutility.rm(deletedirectory, '', () => {
@@ -91,6 +99,16 @@ export class DeleteSourceFolder {
             return;
         }
 
+        if (getSdkPlatform() === 'capacitor') {
+            const source = Path.ensureFileUri(sourceDirectory);
+            const destination = Path.ensureFileUri(destinationDirectory);
+            await this.fileService.copyDir(
+                Path.dirPathFromFilePath(source), Path.fileNameFromFilePath(source),
+                Path.dirPathFromFilePath(destination), Path.fileNameFromFilePath(destination)
+            );
+            return undefined;
+        }
+
         return new Promise<undefined>((resolve, reject) => {
             let res;
             sbutility.copyDirectory(sourceDirectory, destinationDirectory, () => {
@@ -104,6 +122,17 @@ export class DeleteSourceFolder {
     private async renameFolder(sourceDirectory: string, toDirectoryName: string): Promise<undefined> {
         if (!sourceDirectory) {
             return;
+        }
+        if (getSdkPlatform() === 'capacitor') {
+            // Matches native FileUtil.renameTo: renames sourceDirectory/toDirectoryName to
+            // sourceDirectory/toDirectoryName_temp (NOT a rename of sourceDirectory itself).
+            const uriSourceDirectory = Path.ensureFileUri(sourceDirectory);
+            const base = uriSourceDirectory.endsWith('/') ? uriSourceDirectory : uriSourceDirectory + '/';
+            await Filesystem.rename({
+                from: `${base}${toDirectoryName}`,
+                to: `${base}${toDirectoryName}_temp`
+            });
+            return undefined;
         }
         return new Promise<undefined>((resolve, reject) => {
             let res;
