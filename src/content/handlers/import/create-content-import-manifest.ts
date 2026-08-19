@@ -8,6 +8,8 @@ import {DeviceInfo} from '../../../util/device';
 import {FileService} from '../../../util/file/def/file-service';
 import {Response} from '../../../api';
 import {MimeType} from '../../util/content-constants';
+import {getSdkPlatform} from '../../../util/platform/platform-util';
+import {Path} from '../../../util/file/util/path';
 
 export class CreateContentImportManifest {
 
@@ -88,6 +90,12 @@ export class CreateContentImportManifest {
 
     // TODO: move this method to file-service
     private async writeFile(fileMapList: any[]) {
+        if (getSdkPlatform() === 'capacitor') {
+            for (const item of fileMapList) {
+                await this.fileService.writeFile(Path.ensureFileUri(item.path), item.fileName, item.data, {});
+            }
+            return;
+        }
         return new Promise<void>((resolve, reject) => {
             sbutility.writeFile(fileMapList,
                 (entry) => {

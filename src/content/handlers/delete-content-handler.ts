@@ -8,6 +8,8 @@ import {ContentKeys} from '../../preference-keys';
 import {ArrayUtil} from '../../util/array-util';
 import {FileUtil} from '../../util/file/util/file-util';
 import { map } from 'rxjs/operators';
+import { getSdkPlatform } from '../../util/platform/platform-util';
+import { Path } from '../../util/file/util/path';
 
 export class DeleteContentHandler {
 
@@ -166,7 +168,19 @@ export class DeleteContentHandler {
     }
 
     /** @internal */
-    private rm(directoryPath, directoryToBeSkipped): Promise<boolean> {
+    private async rm(directoryPath, directoryToBeSkipped): Promise<boolean> {
+        if (getSdkPlatform() === 'capacitor') {
+            // Native rm(dir, skip) does skip.equals(child.getName()) with no split on ':' —
+            // since callers always pass a colon-joined pair, it never matches a real single
+            // filename, so this has always behaved as a plain recursive delete in practice.
+            try {
+                await this.fileService.removeRecursively(Path.ensureFileUri(directoryPath));
+                return true;
+            } catch (xc) {
+                console.error(xc);
+                return Promise.reject(false);
+            }
+        }
         return new Promise<boolean>((resolve, reject) => {
             try {
                 sbutility.rm(directoryPath, directoryToBeSkipped, (status: boolean) => {
@@ -184,6 +198,14 @@ export class DeleteContentHandler {
 
     // TODO: move this method to file-service
     private async getMetaData(fileMapList: any[]) {
+        if (getSdkPlatform() === 'capacitor') {
+            const result: { [identifier: string]: { size: number, lastModifiedTime: number } } = {};
+            for (const item of fileMapList) {
+                const meta = await this.fileService.getMetaData(Path.ensureFileUri(item.path));
+                result[item.identifier] = { size: meta.size, lastModifiedTime: meta.modificationTime.getTime() };
+            }
+            return result;
+        }
         return new Promise((resolve, reject) => {
             sbutility.getMetaData(fileMapList,
                 (entry) => {

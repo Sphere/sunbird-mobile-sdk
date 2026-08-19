@@ -8,6 +8,8 @@ import {ArrayUtil} from '../../../util/array-util';
 import {ContentKeys} from '../../../preference-keys';
 import {SharedPreferences} from '../../../util/shared-preferences';
 import { tap, mergeMap } from 'rxjs/operators';
+import { getSdkPlatform } from '../../../util/platform/platform-util';
+import { Path } from '../../../util/file/util/path';
 
 export class UpdateSizeOnDevice {
 
@@ -91,6 +93,14 @@ export class UpdateSizeOnDevice {
     }
 
     private async getMetaData(fileMapList: any[]) {
+        if (getSdkPlatform() === 'capacitor') {
+            const result: { [identifier: string]: { size: number, lastModifiedTime: number } } = {};
+            for (const item of fileMapList) {
+                const meta = await this.fileService.getMetaData(Path.ensureFileUri(item.path));
+                result[item.identifier] = { size: meta.size, lastModifiedTime: meta.modificationTime.getTime() };
+            }
+            return result;
+        }
         return new Promise((resolve, reject) => {
             sbutility.getMetaData(fileMapList,
                 (entry) => {

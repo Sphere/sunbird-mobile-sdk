@@ -138,7 +138,7 @@ describe('DbServiceCapacitorImpl', () => {
     });
 
     describe('execute()', () => {
-        it('passes raw SQL to plugin', (done) => {
+        it('routes non-row-returning SQL (DROP) to plugin execute()', (done) => {
             service.execute('DROP TABLE IF EXISTS dummy').subscribe(() => {
                 expect(CapacitorSQLite.execute).toHaveBeenCalledWith(
                     expect.objectContaining({
@@ -146,6 +146,30 @@ describe('DbServiceCapacitorImpl', () => {
                         statements: 'DROP TABLE IF EXISTS dummy'
                     })
                 );
+                expect(CapacitorSQLite.query).not.toHaveBeenCalled();
+                done();
+            });
+        });
+
+        it('routes a raw SELECT to plugin query() and returns its rows, not a change-count', (done) => {
+            service.execute('SELECT * FROM content WHERE identifier = "abc"').subscribe((rows) => {
+                expect(CapacitorSQLite.query).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        database: 'GenieServices',
+                        statement: 'SELECT * FROM content WHERE identifier = "abc"'
+                    })
+                );
+                expect(CapacitorSQLite.execute).not.toHaveBeenCalled();
+                expect(Array.isArray(rows)).toBe(true);
+                expect(rows).toEqual([{ id: 1, name: 'test' }]);
+                done();
+            });
+        });
+
+        it('routes SELECT regardless of leading whitespace/case', (done) => {
+            service.execute('  select count(*) from telemetry').subscribe(() => {
+                expect(CapacitorSQLite.query).toHaveBeenCalled();
+                expect(CapacitorSQLite.execute).not.toHaveBeenCalled();
                 done();
             });
         });

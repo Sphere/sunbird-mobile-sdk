@@ -46,6 +46,7 @@ import {EventsBusServiceImpl} from './events-bus/impl/events-bus-service-impl';
 import {SummarizerService, SummarizerServiceImpl} from './summarizer';
 import {DownloadService} from './util/download';
 import {DownloadServiceImpl} from './util/download/impl/download-service-impl';
+import {DownloadServiceCapacitorImpl} from './util/download/impl/download-service-capacitor-impl';
 import {AppInfo} from './util/app';
 import {AppInfoImpl} from './util/app/impl/app-info-impl';
 import {AppInfoCapacitorImpl} from './util/app/impl/app-info-capacitor-impl';
@@ -281,7 +282,10 @@ export class SunbirdSdk {
 
     public async init(sdkConfig: SdkConfig) {
         await initPlatformUtil(sdkConfig.platform);
-        console.log('[PHASE1_DEBUG] platform:', getPlatform(), 'deviceId:', getDeviceId());
+        // Build stamp — bump the date suffix on every SDK rebuild handed to the host app, so a
+        // stale-webview/stale-node_modules build is immediately identifiable from the console.
+        console.log('[sunbird-sdk] init — build 2026-07-13-1, sdkPlatform:', sdkConfig.platform,
+            'osPlatform:', getPlatform(), 'deviceId:', getDeviceId());
 
         this._container = new Container();
 
@@ -387,7 +391,11 @@ export class SunbirdSdk {
 
         this._container.bind<FrameworkUtilService>(InjectionTokens.FRAMEWORK_UTIL_SERVICE).to(FrameworkUtilServiceImpl).inSingletonScope();
 
-        this._container.bind<DownloadService>(InjectionTokens.DOWNLOAD_SERVICE).to(DownloadServiceImpl).inSingletonScope();
+        if (sdkConfig.platform === 'capacitor') {
+            this._container.bind<DownloadService>(InjectionTokens.DOWNLOAD_SERVICE).to(DownloadServiceCapacitorImpl).inSingletonScope();
+        } else {
+            this._container.bind<DownloadService>(InjectionTokens.DOWNLOAD_SERVICE).to(DownloadServiceImpl).inSingletonScope();
+        }
 
         this._container.bind<ContentService>(InjectionTokens.CONTENT_SERVICE).to(ContentServiceImpl).inSingletonScope();
 

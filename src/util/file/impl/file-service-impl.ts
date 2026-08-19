@@ -9,6 +9,8 @@ import {
 } from '../index';
 import { Filesystem, Encoding, FileInfo, Directory } from '@capacitor/filesystem';
 import { registerPlugin } from '@capacitor/core';
+import { getSdkPlatform } from '../../platform/platform-util';
+import { Path } from '../util/path';
 
 interface DiskSpacePluginInterface {
     getFreeDiskSpace(): Promise<{ freeSpace: number }>;
@@ -28,6 +30,27 @@ export class FileServiceImpl implements FileService {
 
     private fileSystem: FileSystem;
     private initialized = false;
+
+    /**
+     * Produce a well-formed file:/// URI for an absolute filesystem path.
+     * - Bare absolute path "/storage/…"          -> "file:///storage/…"
+     * - Malformed "file://storage/…" (2 slashes)  -> "file:///storage/…"  (the leading path
+     *   segment was being mis-parsed as the URI authority, which is what makes Android's
+     *   File(uri.getPath()) resolve to the wrong location and mkdirs() fail)
+     * - Already-correct "file:///storage/…"       -> unchanged
+     * - Non-file schemes (content://, http…)      -> unchanged
+     */
+    static toWellFormedFileUri(path: string): string {
+        if (!path) { return path; }
+        if (path.startsWith('file:///')) { return path; }
+        if (path.startsWith('file://')) {
+            // exactly two slashes: re-root so the path is not treated as an authority
+            return 'file:///' + path.substring('file://'.length).replace(/^\/+/, '');
+        }
+        if (/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(path)) { return path; } // some other scheme
+        if (path.startsWith('/')) { return 'file://' + path; } // -> file:///…
+        return path; // relative path: leave as-is for a Directory-scoped call
+    }
 
     init() {
         this.initialized = true;
@@ -84,6 +107,25 @@ export class FileServiceImpl implements FileService {
     }
 
     readFileFromAssets(fileName: string): Promise<string> {
+        if (getSdkPlatform() === 'capacitor') {
+            // Native sbutility.readFromAssets strips only the "file:///android_asset/" prefix
+            // and opens the remainder (e.g. "www/assets/...") via Android's AssetManager,
+            // which reads from the APK's assets/ folder (Cordova's build places web content
+            // at assets/www/). Capacitor instead copies webDir's *contents* (not the folder
+            // itself, see sphere-mobile's capacitor.config.ts webDir: "www") into assets/public/
+            // and serves that as the web root, so a file at source www/assets/foo.json is
+            // reachable at the relative URL assets/foo.json. Strip both prefixes and fetch.
+            // Best-effort pending device verification — see phase-7-summary.md.
+            const relativePath = fileName
+                .replace(/^file:\/\/\/android_asset\//, '')
+                .replace(/^www\//, '');
+            return fetch(relativePath).then((response) => {
+                if (!response.ok) {
+                    throw new Error(`Failed to read asset: ${relativePath} (${response.status})`);
+                }
+                return response.text();
+            });
+        }
         return new Promise<string>((resolve, reject) => {
             try {
                 sbutility.readFromAssets(fileName, (entry: string) => {
@@ -204,39 +246,60 @@ export class FileServiceImpl implements FileService {
 
 
     async createDir(path: string, replace: boolean): Promise<{ isFile: boolean, isDirectory: boolean, name: string, fullPath: string, nativeURL: string }> {
+        // Capacitor's Filesystem.mkdir (no `directory` option) resolves the path via
+        // Uri.parse(path).getPath() then File.mkdirs(). A malformed file:// URI (e.g. only two
+        // slashes, so the first path segment is parsed as the URI authority) resolves to the
+        // wrong File and mkdirs() returns false → the opaque "'mkdir' failed with: An unknown
+        // error occurred". Normalize to a well-formed file:/// URI defensively.
+        const normalizedPath = FileServiceImpl.toWellFormedFileUri(path);
+        // Temporary diagnostics — remove once the capacitor import path is confirmed working.
+        console.log('[createDir] input path:', path, '| normalized:', normalizedPath, '| replace:', replace);
         try {
-            const dirExists = await this.checkFileExists(path);
+            const dirExists = await this.checkFileExists(normalizedPath);
+            console.log('[createDir] dirExists:', dirExists);
             if (dirExists && !replace) {
                 return {
                     isFile: false,
                     isDirectory: true,
-                    name: path.split('/').pop() || '',
-                    fullPath: path,
-                    nativeURL: path + '/'
+                    name: normalizedPath.split('/').pop() || '',
+                    fullPath: normalizedPath,
+                    nativeURL: normalizedPath + '/'
                 };
             }
             if(replace && dirExists) {
                 await Filesystem.rmdir({
-                    path: path,
+                    path: normalizedPath,
                     recursive: true
                 });
             }
 
-            await Filesystem.mkdir({
-                path: path,
-                recursive: true
-            });
+            try {
+                await Filesystem.mkdir({
+                    path: normalizedPath,
+                    recursive: true
+                });
+            } catch (mkdirError) {
+                // mkdir throws (a) if the dir already exists even with recursive:true (a known
+                // Capacitor gotcha), or (b) on the malformed-URI resolution failure above. If a
+                // post-mkdir stat shows the dir now exists, treat as success; otherwise rethrow
+                // with the resolved path so the real failure is visible instead of swallowed.
+                const existsNow = await this.checkFileExists(normalizedPath);
+                console.warn('[createDir] mkdir threw; existsNow:', existsNow, '| path:', normalizedPath, '| error:', mkdirError);
+                if (!existsNow) {
+                    throw new Error(`mkdir failed for path "${normalizedPath}": ${(mkdirError && (mkdirError as any).message) || mkdirError}`);
+                }
+            }
 
 
             return {
                 isFile: false,
                 isDirectory: true,
-                name: path.split('/').pop() || '',
-                fullPath: path,
-                nativeURL: path + '/'
+                name: normalizedPath.split('/').pop() || '',
+                fullPath: normalizedPath,
+                nativeURL: normalizedPath + '/'
             };
         } catch (error) {
-            console.error('Error creating directory:', error);
+            console.error('Error creating directory:', error, '| path was:', normalizedPath);
             throw error;
         }
     }
@@ -415,6 +478,10 @@ export class FileServiceImpl implements FileService {
 
     async getTempLocation(destinationPath: string): Promise<{ path: string, nativeURL: string }> {
         try {
+            // @capacitor/filesystem requires a full file:// URI when no `directory` option is
+            // given. Callers of this method (host app content-import requests, SDK export
+            // flows) don't consistently supply one — normalize defensively.
+            destinationPath = Path.ensureFileUri(destinationPath);
             let tempPath =  destinationPath.endsWith("/") ? `${destinationPath}tmp/` : `${destinationPath}/tmp/`
             await Filesystem.stat({ path: tempPath })
                 .catch(async (error) => {

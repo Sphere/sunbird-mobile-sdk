@@ -6,16 +6,19 @@ import { SunbirdError } from '../../../sunbird-error';
 import { CancellationError } from '../../errors/cancellation-error';
 import { Observable } from 'rxjs';
 import { of } from 'rxjs';
+import { FileService } from '../../../util/file/def/file-service';
 
 declare const sbutility;
 
 describe('CopyContentFromSourceToDestination', () => {
     let copyContentFromSourceToDestination: CopyContentFromSourceToDestination;
     const mockEventBusService: Partial<EventsBusService> = {};
+    const mockFileService: Partial<FileService> = {};
 
     beforeAll(() => {
         copyContentFromSourceToDestination = new CopyContentFromSourceToDestination(
-            mockEventBusService as EventsBusService
+            mockEventBusService as EventsBusService,
+            mockFileService as FileService
         );
     });
 

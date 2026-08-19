@@ -1,5 +1,7 @@
 import {TransferContentContext} from '../transfer-content-handler';
 import {DbService} from '../../../db';
+import {FileService} from '../../../util/file/def/file-service';
+import {getSdkPlatform} from '../../../util/platform/platform-util';
 import {ContentStorageHandler} from '../../../content/handlers/content-storage-handler';
 import {ContentSpaceUsageSummaryResponse} from '../../../content';
 import {ContentUtil} from '../../../content/util/content-util';
@@ -7,7 +9,7 @@ import {LowMemoryError} from '../../errors/low-memory-error';
 import {defer, Observable} from 'rxjs';
 
 export class DeviceMemoryCheck {
-    constructor(private dbService: DbService) {
+    constructor(private dbService: DbService, private fileService: FileService) {
     }
 
     execute(context: TransferContentContext): Observable<TransferContentContext> {
@@ -30,6 +32,9 @@ export class DeviceMemoryCheck {
     }
 
     private async getFreeUsableSpace(directory: string): Promise<number> {
+        if (getSdkPlatform() === 'capacitor') {
+            return this.fileService.getFreeDiskSpace();
+        }
         return new Promise<number>((resolve, reject) => {
             sbutility.getFreeUsableSpace(directory, (space) => {
                 resolve(Number(space));

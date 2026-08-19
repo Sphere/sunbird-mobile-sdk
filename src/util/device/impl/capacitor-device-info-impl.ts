@@ -4,7 +4,9 @@ import { map } from 'rxjs/operators';
 import { injectable } from 'inversify';
 import { StorageDestination } from '../../../storage';
 import { Device } from '@capacitor/device';
-import { getDeviceId } from '../../platform/platform-util';
+import { getDeviceId, getPlatform } from '../../platform/platform-util';
+import { FilePaths } from '../../../services/file-path/file-path.enum';
+import { FilePathService } from '../../../services/file-path/file-path.service';
 
 @injectable()
 export class CapacitorDeviceInfoImpl implements DeviceInfo {
@@ -37,17 +39,30 @@ export class CapacitorDeviceInfoImpl implements DeviceInfo {
     }
 
     getStorageVolumes(): Observable<StorageVolume[]> {
-        return of([{
-            storageDestination: StorageDestination.INTERNAL_STORAGE,
-            info: {
-                availableSize: 0,
-                totalSize: '0',
-                state: 'mounted',
-                path: '',
-                contentStoragePath: '',
-                isRemovable: false
-            }
-        }]);
+        // contentStoragePath is NOT cosmetic: StorageServiceImpl.getStorageDestinationDirectoryPath()
+        // returns it, and host apps pass that as destinationFolder for every content download/import
+        // (tmp/, content/, Download/ are all built on top of it). The Cordova native equivalent
+        // (sb-cordova-plugin-utility StorageUtil.getAppStorageArea) returns
+        // "file://" + getExternalFilesDir(...) + "/" — FilePathService(EXTERNAL) yields the exact
+        // same URI via Capacitor's Directory.External. An empty string here sends imports to the
+        // filesystem root (file:///tmp/...) where mkdir fails.
+        const storagePath = getPlatform() === 'ios' ? FilePaths.DOCUMENTS : FilePaths.EXTERNAL;
+        return from(FilePathService.getFilePath(storagePath)).pipe(
+            // Temporary diagnostic — this path becomes destinationFolder for all content imports.
+            map((p) => { console.log('[getStorageVolumes] contentStoragePath:', p); return p; }),
+            map((contentStoragePath) => [{
+                storageDestination: StorageDestination.INTERNAL_STORAGE,
+                info: {
+                    // Sizes not exposed by @capacitor/filesystem — cosmetic-only fields, left stubbed.
+                    availableSize: 0,
+                    totalSize: '0',
+                    state: 'mounted',
+                    path: contentStoragePath,
+                    contentStoragePath,
+                    isRemovable: false
+                }
+            }])
+        );
     }
 
     isKeyboardShown(): Observable<boolean> {

@@ -47,9 +47,30 @@ export class DbServiceCapacitorImpl extends DbService {
 
     execute(rawQuery: string, useExternalDb?: boolean): Observable<any> {
         const database = useExternalDb && this.externalDbName ? this.externalDbName : this.dbName;
+        // The SDK's execute() contract runs arbitrary raw SQL — including SELECTs that must
+        // return their rows (e.g. getContents, getFindAllContentsQuery). The native Cordova
+        // plugin handled both transparently, but @capacitor-community/sqlite splits them:
+        // db.query() = rawQuery (row-returning), db.execute() = execSQL (DDL/DML only).
+        // Passing a SELECT to db.execute() throws "Queries can be performed using SQLiteDatabase
+        // query or rawQuery methods only" and returns a change-count instead of rows (which then
+        // surfaces downstream as "X is not iterable"). Route by statement type.
+        if (DbServiceCapacitorImpl.isRowReturningQuery(rawQuery)) {
+            return from(
+                this.db.query({ database, statement: rawQuery, values: [] })
+            ).pipe(map(result => result.values || []));
+        }
         return from(
             this.db.execute({ database, statements: rawQuery, transaction: false })
         ).pipe(map(result => result.changes));
+    }
+
+    private static isRowReturningQuery(rawQuery: string): boolean {
+        // Strip leading line/block comments and whitespace, then check the leading keyword.
+        const normalized = rawQuery
+            .replace(/^\s*(--[^\n]*\n|\/\*[\s\S]*?\*\/|\s)+/, '')
+            .trimStart()
+            .toUpperCase();
+        return /^(SELECT|WITH|PRAGMA|EXPLAIN)\b/.test(normalized);
     }
 
     read(readQuery: ReadQuery): Observable<any[]> {

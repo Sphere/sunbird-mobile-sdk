@@ -71,7 +71,7 @@ import { CreateTempLoc } from '../handlers/export/create-temp-loc';
 import { SearchRequest } from '../def/search-request';
 import { ContentSearchApiHandler } from '../handlers/import/content-search-api-handler';
 import { ArrayUtil } from '../../util/array-util';
-import { getPlatform } from '../../util/platform/platform-util';
+import { getPlatform, getSdkPlatform } from '../../util/platform/platform-util';
 import { FileUtil } from '../../util/file/util/file-util';
 import { DownloadRequest, DownloadService } from '../../util/download';
 import { DownloadCompleteDelegate } from '../../util/download/def/download-complete-delegate';
@@ -123,6 +123,14 @@ export class ContentServiceImpl implements ContentService, DownloadCompleteDeleg
     private contentDeleteRequestSet: SharedPreferencesSetCollection<ContentDelete>;
 
     private contentUpdateSizeOnDeviceTimeoutRef: Map<string, NodeJS.Timeout> = new Map();
+
+    // Identifiers marked cancelled via cancelImport() while their importEcar() pipeline is
+    // already running. DownloadService.cancel()/cancelAll() can only stop a download that
+    // hasn't finished yet or dequeue an item still waiting — once onDownloadCompletion() has
+    // fired and importEcar()'s multi-step extract/validate/payload pipeline is underway, there
+    // was previously no way to interrupt it. checkImportCancelled() below is polled between
+    // each major step to close that gap.
+    private cancelledImportIdentifiers: Set<string> = new Set();
 
     constructor(
         @inject(InjectionTokens.SDK_CONFIG) private sdkConfig: SdkConfig,
@@ -233,7 +241,29 @@ export class ContentServiceImpl implements ContentService, DownloadCompleteDeleg
     }
 
     cancelImport(contentId: string): Observable<any> {
+        // Covers the still-queued/still-downloading case. If the download has already
+        // completed and importEcar()'s pipeline is running instead, this flag is what actually
+        // stops it — see checkImportCancelled().
+        this.cancelledImportIdentifiers.add(contentId);
         return this.downloadService.cancel({ identifier: contentId });
+    }
+
+    /**
+     * Throws if `identifier`'s import was cancelled via cancelImport() since it started.
+     * Polled between each major step of importEcar()'s pipeline (extract/validate/payloads/
+     * manifest) since that promise chain has no other cancellation mechanism. Cleans up the
+     * partial tmp/ extraction before throwing so a cancelled import doesn't leave orphaned data
+     * on disk (the same cleanup EcarCleanup would have done on normal completion).
+     */
+    private async checkImportCancelled(identifier: string | undefined, tmpLocation: string | undefined): Promise<void> {
+        if (!identifier || !this.cancelledImportIdentifiers.has(identifier)) {
+            return;
+        }
+        this.cancelledImportIdentifiers.delete(identifier);
+        if (tmpLocation) {
+            await this.fileService.removeRecursively(tmpLocation).catch(() => undefined);
+        }
+        throw new Error('IMPORT_CANCELLED');
     }
 
     deleteContent(contentDeleteRequest: ContentDeleteRequest): Observable<ContentDeleteResponse[]> {
@@ -318,11 +348,11 @@ export class ContentServiceImpl implements ContentService, DownloadCompleteDeleg
                     }).then((exportResponse: Response) => {
                         return new DeviceMemoryCheck(this.fileService).execute(exportResponse.body);
                     }).then((exportResponse: Response) => {
-                        return new CopyAsset().execute(exportResponse.body);
+                        return new CopyAsset(this.fileService).execute(exportResponse.body);
                     }).then((exportResponse: Response) => {
                         return new EcarBundle(this.fileService, this.zipService).execute(exportResponse.body);
                     }).then((exportResponse: Response) => {
-                        return new CopyToDestination().execute(exportResponse, contentExportRequest);
+                        return new CopyToDestination(this.fileService).execute(exportResponse, contentExportRequest);
                         // }).then((exportResponse: Response) => {
                         //     return new DeleteTempEcar(this.fileService).execute(exportResponse.body);
                     }).then((exportResponse: Response) => {
@@ -410,11 +440,63 @@ export class ContentServiceImpl implements ContentService, DownloadCompleteDeleg
 
                 if (contents && contents.length) {
                     const downloadRequestList: DownloadRequest[] = [];
+
+                    // Resuming a course (e.g. after a cancel mid-way through its children)
+                    // shouldn't re-download children that already finished — check DB state for
+                    // every requested id up front and skip re-enqueueing whichever are already
+                    // at ARTIFACT_AVAILABLE with a same-or-newer version, so a retry goes
+                    // straight to whatever's still missing instead of starting over.
+                    const existingContentsById = new Map<string, ContentEntry.SchemaMap>();
+                    if (contentIds.length) {
+                        const existingRowsQuery = `SELECT * FROM ${ContentEntry.TABLE_NAME}
+                            WHERE ${ContentEntry.COLUMN_NAME_IDENTIFIER} IN (${ArrayUtil.joinPreservingQuotes(contentIds)})`;
+                        const existingRows: ContentEntry.SchemaMap[] = await this.dbService.execute(existingRowsQuery).toPromise();
+                        existingRows.forEach((row) => existingContentsById.set(row[ContentEntry.COLUMN_NAME_IDENTIFIER]!, row));
+                    }
+                    // Temporary diagnostics — remove once the resume/skip-already-downloaded
+                    // behavior is confirmed working on-device.
+                    console.log('[importContent] requested contentIds:', contentIds);
+                    console.log('[importContent] existing DB rows found for:', Array.from(existingContentsById.keys()));
+
                     for (const contentId of contentIds) {
                         const contentData: ContentData | undefined = contents.find(x => x.identifier === contentId);
                         if (contentData) {
                             const contentImport: ContentImport =
                                 contentImportRequest.contentImportArray.find((i) => i.contentId === contentId)!;
+
+                            const existingRow = existingContentsById.get(contentId);
+                            // Deliberately NOT ContentUtil.isImportFileExist() — it also compares
+                            // visibility, which is wrong for this call site. Course children are
+                            // written to the DB with visibility=Parent during import, but
+                            // `contentData` here always comes from the standalone content-search
+                            // API and never carries that field (readVisibility() falls back to
+                            // Default), so the comparison would mismatch for every course child on
+                            // every resume and force a redundant re-download. identifier equality
+                            // is already guaranteed by the existingContentsById/contents lookups
+                            // above.
+                            //
+                            // content_state DOES need to gate this, though — every extract-payloads.ts
+                            // write path only sets ARTIFACT_AVAILABLE for the manifest item whose
+                            // artifact actually unzipped; every sibling/descendant entry in that same
+                            // manifest (e.g. other children of a course ecar) gets ONLY_SPINE as a
+                            // side effect even though its own artifact was never downloaded. Live
+                            // evidence confirmed this: a never-downloaded sibling had existingRow=true
+                            // content_state=ONLY_SPINE purely because another resource's import wrote
+                            // its DB row. Skipping without this gate falsely treats such rows as
+                            // "already downloaded" and silently drops them from the queue.
+                            const alreadyDownloaded = !!existingRow &&
+                                ContentUtil.isAvailableLocally(existingRow[ContentEntry.COLUMN_NAME_CONTENT_STATE]!) &&
+                                ContentUtil.readPkgVersion(JSON.parse(existingRow[ContentEntry.COLUMN_NAME_LOCAL_DATA])) >=
+                                ContentUtil.readPkgVersion(contentData);
+                            console.log(`[importContent] ${contentId}: existingRow=${!!existingRow}`,
+                                existingRow ? `content_state=${existingRow[ContentEntry.COLUMN_NAME_CONTENT_STATE]}` : '',
+                                `alreadyDownloaded=${alreadyDownloaded}`);
+
+                            if (alreadyDownloaded) {
+                                contentImportResponses.push({ identifier: contentId, status: ContentImportStatus.ALREADY_EXIST });
+                                continue;
+                            }
+
                             const downloadUrl = await searchContentHandler.getDownloadUrl(contentData, contentImport);
                             let status: ContentImportStatus = ContentImportStatus.NOT_FOUND;
                             if (downloadUrl && FileUtil.getFileExtension(downloadUrl) === FileExtension.CONTENT.valueOf()) {
@@ -439,6 +521,7 @@ export class ContentServiceImpl implements ContentService, DownloadCompleteDeleg
                             contentImportResponses.push({ identifier: contentId, status: status });
                         }
                     }
+                    console.log('[importContent] actually enqueuing for download:', downloadRequestList.map(r => r.identifier));
                     this.downloadService.download(downloadRequestList).toPromise().then();
                 }
 
@@ -447,8 +530,30 @@ export class ContentServiceImpl implements ContentService, DownloadCompleteDeleg
         );
     }
 
+    /** Empty or filesystem-root-only destination ('', '/', 'file://', 'file:///') — every
+     *  path built on it (tmp/, content/) would land at the device root and fail mkdir. */
+    private static isUnusableDestinationFolder(destinationFolder?: string): boolean {
+        if (!destinationFolder) {
+            return true;
+        }
+        const bare = destinationFolder.replace(/^file:\/\//, '').replace(/\/+$/, '');
+        return bare === '';
+    }
+
     importEcar(ecarImportRequest: EcarImportRequest): Observable<ContentImportResponse[]> {
         return from(this.fileService.exists(ecarImportRequest.sourceFilePath).then(async (entry: any) => {
+            if (getSdkPlatform() === 'capacitor' && ContentServiceImpl.isUnusableDestinationFolder(ecarImportRequest.destinationFolder)) {
+                // Rescue path: download requests persisted in SharedPreferences by earlier runs
+                // (before CapacitorDeviceInfoImpl.getStorageVolumes() returned a real
+                // contentStoragePath) carry an empty or root-only destinationFolder ('', '/',
+                // 'file:///') — any of which roots the whole import at file:///tmp/... where
+                // mkdir fails. Derive the same default the storage volume now reports.
+                const originalDestination = ecarImportRequest.destinationFolder;
+                const fallbackStoragePath = getPlatform() === 'ios' ? FilePaths.DOCUMENTS : FilePaths.EXTERNAL;
+                ecarImportRequest.destinationFolder = await FilePathService.getFilePath(fallbackStoragePath);
+                console.warn('[importEcar] unusable destinationFolder', JSON.stringify(originalDestination),
+                    '— defaulted to', ecarImportRequest.destinationFolder);
+            }
             const importContentContext: ImportContentContext = {
                 isChildContent: ecarImportRequest.isChildContent,
                 ecarFilePath: ecarImportRequest.sourceFilePath,
@@ -462,14 +567,19 @@ export class ContentServiceImpl implements ContentService, DownloadCompleteDeleg
                 identifier: ecarImportRequest.identifier
             };
             await new GenerateInteractTelemetry(this.telemetryService).execute(importContentContext, 'ContentImport-Initiated');
+            await this.checkImportCancelled(importContentContext.identifier, importContentContext.tmpLocation);
             const tempLocation = await this.fileService.getTempLocation(ecarImportRequest.destinationFolder)
             importContentContext.tmpLocation = tempLocation.nativeURL;
+            await this.checkImportCancelled(importContentContext.identifier, importContentContext.tmpLocation);
             const importResponse = await new ExtractEcar(this.fileService, this.zipService).execute(importContentContext);
+            await this.checkImportCancelled(importContentContext.identifier, importContentContext.tmpLocation);
             const importResponse_1 = await new ValidateEcar(this.fileService, this.dbService, this.appConfig,
                 this.getContentDetailsHandler).execute(importResponse.body);
+            await this.checkImportCancelled(importContentContext.identifier, importContentContext.tmpLocation);
             const [importResponse_2, ref] = await new ExtractPayloads(this.fileService, this.zipService, this.appConfig,
                 this.dbService, this.deviceInfo, this.getContentDetailsHandler, this.eventsBusService, this.sharedPreferences)
                 .execute(importResponse_1.body);
+            await this.checkImportCancelled(importContentContext.identifier, importContentContext.tmpLocation);
             this.contentUpdateSizeOnDeviceTimeoutRef.set(importContentContext.rootIdentifier ?
                 importContentContext.rootIdentifier : importContentContext.identifiers![0], ref);
             this.eventsBusService.emit({
@@ -928,6 +1038,10 @@ export class ContentServiceImpl implements ContentService, DownloadCompleteDeleg
     }
 
     private async copyFile(sourcePath: string, destinationPath: string, fileName: string): Promise<boolean> {
+        if (getSdkPlatform() === 'capacitor') {
+            await this.fileService.copyFile(sourcePath, fileName, destinationPath, fileName);
+            return true;
+        }
         return new Promise<boolean>((resolve: (value: boolean | PromiseLike<boolean>) => void, reject) => {
             sbutility.copyFile(sourcePath, destinationPath, fileName,
                 () => {
@@ -942,6 +1056,10 @@ export class ContentServiceImpl implements ContentService, DownloadCompleteDeleg
     private async deleteFolder(deletedirectory: string): Promise<undefined> {
         if (!deletedirectory) {
             return;
+        }
+        if (getSdkPlatform() === 'capacitor') {
+            await this.fileService.removeRecursively(deletedirectory);
+            return undefined;
         }
         return new Promise<undefined>((resolve: (value: undefined) => void, reject) => {
             sbutility.rm(deletedirectory, '', () => {

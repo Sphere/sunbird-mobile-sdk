@@ -2,16 +2,19 @@ import {DeleteSourceFolder} from './delete-source-folder';
 import { EventsBusService, ExistingContentAction } from '../../..';
 import { ContentEntry } from '../../../content/db/schema';
 import { MoveContentResponse, MoveContentStatus, TransferContentContext } from '../transfer-content-handler';
+import { FileService } from '../../../util/file/def/file-service';
 
 declare const sbutility;
 
 describe('DeleteSourceFolder', () => {
     let deleteSourceFolder: DeleteSourceFolder;
     const mockEventsBusService: Partial<EventsBusService> = {};
+    const mockFileService: Partial<FileService> = {};
 
     beforeAll(() => {
         deleteSourceFolder = new DeleteSourceFolder(
-            mockEventsBusService as EventsBusService
+            mockEventsBusService as EventsBusService,
+            mockFileService as FileService
         );
     });
 
