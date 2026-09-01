@@ -201,8 +201,14 @@ export class DeleteContentHandler {
         if (getSdkPlatform() === 'capacitor') {
             const result: { [identifier: string]: { size: number, lastModifiedTime: number } } = {};
             for (const item of fileMapList) {
-                const meta = await this.fileService.getMetaData(Path.ensureFileUri(item.path));
-                result[item.identifier] = { size: meta.size, lastModifiedTime: meta.modificationTime.getTime() };
+                try {
+                    const meta = await this.fileService.getMetaData(Path.ensureFileUri(item.path));
+                    result[item.identifier] = { size: meta.size, lastModifiedTime: meta.modificationTime.getTime() };
+                } catch (e) {
+                    // Content directory is already gone (deleted just above, or in a prior
+                    // partial delete) - that's the expected end state here, not a failure.
+                    result[item.identifier] = { size: 0, lastModifiedTime: Date.now() };
+                }
             }
             return result;
         }

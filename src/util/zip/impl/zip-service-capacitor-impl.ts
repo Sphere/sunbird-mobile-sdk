@@ -1,7 +1,9 @@
 import { ZipService } from '../def/zip-service';
 import { injectable } from 'inversify';
 import { Filesystem } from '@capacitor/filesystem';
+import { CapacitorZip } from '@capgo/capacitor-zip';
 import JSZip from 'jszip';
+import { FileServiceImpl } from '../../file/impl/file-service-impl';
 
 @injectable()
 export class ZipServiceCapacitorImpl implements ZipService {
@@ -9,7 +11,10 @@ export class ZipServiceCapacitorImpl implements ZipService {
     unzip(sourceZip: string, option: { target: string }, successCallback?, errorCallback?) {
         this.doUnzip(sourceZip, option.target)
             .then(() => successCallback && successCallback())
-            .catch(e => errorCallback && errorCallback(e));
+            .catch(e => {
+                console.error('[ECAR] Native Capacitor unzip failed:', e);
+                errorCallback && errorCallback(e);
+            });
     }
 
     zip(
@@ -27,26 +32,28 @@ export class ZipServiceCapacitorImpl implements ZipService {
 
     // ── private ───────────────────────────────────────────────────────────────
 
+    /**
+     * Every current caller passes a well-formed file:///... URI (via FileServiceImpl.createDir()'s
+     * nativeURL or Filesystem.getUri()'s .uri). @capgo/capacitor-zip's native code (verified from
+     * source on both platforms) does `new File(source)` / `URL(fileURLWithPath:)` directly on the
+     * string with no URI parsing - a file:// scheme prefix makes it resolve as a relative path and
+     * silently fail to find the file. Route through the existing well-formed-URI normalizer before
+     * stripping the scheme, since a bare replace would corrupt the malformed 2-slash file://... form
+     * (see toWellFormedFileUri's own history) into a relative path instead of an absolute one.
+     */
+    private toNativePath(path: string): string {
+        const wellFormed = FileServiceImpl.toWellFormedFileUri(path);
+        return wellFormed.replace(/^file:\/\//, '');
+    }
+
     private async doUnzip(sourceZip: string, targetDir: string): Promise<void> {
-        const result = await Filesystem.readFile({ path: sourceZip });
-        const base64 = result.data as string;
+        const source = this.toNativePath(sourceZip);
+        const destination = this.toNativePath(targetDir);
 
-        const zip = await JSZip.loadAsync(base64, { base64: true });
+        console.log('[ECAR] native unzip source path:', source);
+        console.log('[ECAR] native unzip destination path:', destination);
 
-        const writes: Promise<unknown>[] = [];
-        zip.forEach((relativePath: string, entry) => {
-            if (entry.dir) { return; }
-            writes.push(
-                entry.async('base64').then((data: string) => {
-                    const outPath = targetDir.endsWith('/')
-                        ? `${targetDir}${relativePath}`
-                        : `${targetDir}/${relativePath}`;
-                    return Filesystem.writeFile({ path: outPath, data, recursive: true });
-                })
-            );
-        });
-
-        await Promise.all(writes);
+        await CapacitorZip.unzip({ source, destination });
     }
 
     private async doZip(
