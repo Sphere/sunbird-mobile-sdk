@@ -7,9 +7,18 @@ import { InjectionTokens } from '../../injection-tokens';
 import { Observable, from, of } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { CapacitorSQLite } from '@capacitor-community/sqlite';
+import { SharedPreferences } from '../../util/shared-preferences';
 
 @injectable()
 export class DbServiceCapacitorImpl extends DbService {
+
+    // @capacitor-community/sqlite does not persist PRAGMA user_version on this database file, so
+    // db.getVersion() reads back 0 on every launch regardless of prior onCreate()/onUpgrade()
+    // calls (confirmed on-device: all CREATE TABLE IF NOT EXISTS statements re-ran on a cold
+    // restart). Relying on it means onUpgrade() can never fire for a future dbVersion bump.
+    // Track the applied schema version ourselves in SharedPreferences instead, which is confirmed
+    // to persist correctly across app restarts.
+    private static readonly DB_VERSION_PREF_KEY = 'sunbird_capacitor_db_version';
 
     private readonly db = CapacitorSQLite;
     private dbName: string;
@@ -18,7 +27,8 @@ export class DbServiceCapacitorImpl extends DbService {
     constructor(
         @inject(InjectionTokens.SDK_CONFIG) private sdkConfig: SdkConfig,
         @inject(InjectionTokens.DB_VERSION) private dbVersion: number,
-        @inject(InjectionTokens.DB_MIGRATION_LIST) private appMigrationList: (Migration | MigrationFactory)[]
+        @inject(InjectionTokens.DB_MIGRATION_LIST) private appMigrationList: (Migration | MigrationFactory)[],
+        @inject(InjectionTokens.SHARED_PREFERENCES) private sharedPreferences: SharedPreferences
     ) {
         super();
         // Strip .db extension — plugin adds it internally
@@ -34,12 +44,24 @@ export class DbServiceCapacitorImpl extends DbService {
         });
         await this.db.open({ database: this.dbName });
 
-        const { version: currentVersion = 0 } = await this.db.getVersion({ database: this.dbName });
+        // Always run onCreate(): every statement it issues is CREATE TABLE IF NOT EXISTS, so it
+        // is idempotent, and running it unconditionally keeps the schema self-healing if the
+        // database file and the stored version below ever desync (partial app-data clear, or
+        // Android auto-backup restoring one but not the other). This is also what effectively
+        // happened before, since db.getVersion() always reported 0 — so it is not new cost.
+        await this.onCreate();
 
-        if (currentVersion === 0) {
-            await this.onCreate();
-        } else if (currentVersion < this.dbVersion) {
-            await this.onUpgrade(currentVersion, this.dbVersion);
+        const storedVersionStr = await this.sharedPreferences.getString(DbServiceCapacitorImpl.DB_VERSION_PREF_KEY).toPromise();
+        const storedVersion = storedVersionStr ? parseInt(storedVersionStr, 10) : 0;
+
+        // Only a known previous version can be upgraded from; 0 means "no prior install
+        // recorded", which onCreate() above has already fully provisioned.
+        if (storedVersion > 0 && storedVersion < this.dbVersion) {
+            await this.onUpgrade(storedVersion, this.dbVersion);
+        }
+
+        if (storedVersion !== this.dbVersion) {
+            await this.sharedPreferences.putString(DbServiceCapacitorImpl.DB_VERSION_PREF_KEY, String(this.dbVersion)).toPromise();
         }
 
         return undefined;

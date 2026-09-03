@@ -23,11 +23,26 @@ export class GetModifiedContentHandler {
                     destination = "file://"+destination;
                 }
                 const folderList = await this.getFolderList(destination);
-                context.newlyAddedIdentifiers = await this.getNewlyAddedContents(folderList, dbContentIdentifiers);
-                context.deletedIdentifiers = await this.getDeletedContents(folderList, dbContentIdentifiers);
+                if (folderList === null) {
+                    // The content-root listing failed (missing/not-yet-ready/permission error) -
+                    // that is inconclusive, not proof every downloaded content item was deleted
+                    // from storage. Confirmed on-device: this null case was previously collapsed
+                    // into an empty folder list, which made every restart mark ALL downloaded
+                    // content as deleted (visibility flipped to Parent, content_state downgraded
+                    // to ONLY_SPINE) even though the files were still on disk. Leave both lists
+                    // empty so a failed scan never gets treated as a deletion signal.
+                    context.newlyAddedIdentifiers = [];
+                    context.deletedIdentifiers = [];
+                } else {
+                    context.newlyAddedIdentifiers = await this.getNewlyAddedContents(folderList, dbContentIdentifiers);
+                    context.deletedIdentifiers = await this.getDeletedContents(folderList, dbContentIdentifiers);
+                }
             } else {
+                // No resolved storage path is the same "inconclusive" case as above - not proof
+                // of empty storage. Previously this marked every downloaded content item as
+                // deleted whenever the storage path hadn't resolved yet on this cold-start pass.
                 context.newlyAddedIdentifiers = [];
-                context.deletedIdentifiers = dbContentIdentifiers;
+                context.deletedIdentifiers = [];
             }
         }).pipe(
             mapTo(context)
@@ -65,7 +80,7 @@ export class GetModifiedContentHandler {
         return contentIdentifiers.filter(element => !ArrayUtil.contains(folderList, element));
     }
 
-    private async getFolderList(destination: string): Promise<string[]> {
+    private async getFolderList(destination: string): Promise<string[] | null> {
         return await this.fileService.listDir(destination.replace(/\/$/, ''))
             .then((entries: any) => {
                 const folderList: string[] = entries.map((entry) => {
@@ -73,7 +88,11 @@ export class GetModifiedContentHandler {
                 });
                 return folderList;
             }).catch(() => {
-                return [];
+                // listDir() throws when the directory can't be read (missing, not yet mounted,
+                // permission error) - distinct from a genuinely empty directory, which resolves
+                // successfully with an empty array. Returning null (not []) here lets execute()
+                // tell "listing failed" apart from "storage is actually empty".
+                return null;
             });
     }
 }
