@@ -168,7 +168,8 @@ export class ExtractPayloads {
                             this.zipService.unzip(payload, { target: payloadDestination! }, () => {
                                 isUnzippingSuccessful = true;
                                 resolve();
-                            }, () => {
+                            }, (e) => {
+                                console.error('[extract-payloads] unzip failed for', payload, e);
                                 resolve();
                             });
                         });
