@@ -78,7 +78,19 @@ export class DbServiceCapacitorImpl extends DbService {
         const { statement, values } = this.buildSelect(readQuery);
         return from(
             this.db.query({ database, statement, values })
-        ).pipe(map(result => result.values || []));
+        ).pipe(map(result => DbServiceCapacitorImpl.stripIosColumnMetadata(result.values)));
+    }
+
+    // On iOS, @capacitor-community/sqlite's query() prepends a metadata row
+    // ({ ios_columns: [...] }) describing column names ahead of the actual result rows.
+    private static stripIosColumnMetadata(values: any[] | undefined): any[] {
+        if (!values || !values.length) {
+            return [];
+        }
+        if (values[0] && Object.prototype.hasOwnProperty.call(values[0], 'ios_columns')) {
+            return values.slice(1);
+        }
+        return values;
     }
 
     insert(insertQuery: InsertQuery): Observable<number> {

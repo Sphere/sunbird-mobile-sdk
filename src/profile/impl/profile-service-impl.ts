@@ -145,32 +145,53 @@ export class ProfileServiceImpl implements ProfileService {
             map((s) => s && JSON.parse(s)),
             mergeMap((profileSession?: ProfileSession) => {
                 if (!profileSession) {
-                    const request: Profile = {
-                        uid: '',
-                        handle: '',
-                        profileType: ProfileType.TEACHER,
-                        source: ProfileSource.LOCAL
-                    };
-
-                    return this.createProfile(request)
-                        .pipe(
-                            mergeMap((profile: Profile) => {
-                                return this.setActiveSessionForProfile(profile.uid);
-                            }),
-                            mapTo(undefined)
-                        );
+                    return this.createFreshLocalProfileSession();
                 }
 
-                return profileSession.managedSession ?
+                return (profileSession.managedSession ?
                     this.managedProfileManager.switchSessionToManagedProfile({
                         uid: profileSession.managedSession.uid
                     }) : this.setActiveSessionForProfile(
                         profileSession.uid
                     ).pipe(
                         mapTo(undefined)
-                    );
+                    )
+                ).pipe(
+                    catchError((e) => {
+                        if (e instanceof NoProfileFoundError) {
+                            // The remembered profile uid can outlive its row: profile creation
+                            // writes the session reference to Preferences and the profile row to
+                            // SQLite as two separate, non-transactional operations, so a force-quit
+                            // in between (or any other loss of the SQLite file/row) leaves a
+                            // dangling reference. Bootstrap awaits this via sdk.init() -> preInit(),
+                            // so letting NoProfileFoundError escape here hard-fails app startup
+                            // instead of just losing local profile continuity. Re-create a fresh
+                            // local profile in that case rather than blocking the whole app.
+                            return this.createFreshLocalProfileSession();
+                        }
+
+                        return throwError(e);
+                    })
+                );
             })
         );
+    }
+
+    private createFreshLocalProfileSession(): Observable<undefined> {
+        const request: Profile = {
+            uid: '',
+            handle: '',
+            profileType: ProfileType.TEACHER,
+            source: ProfileSource.LOCAL
+        };
+
+        return this.createProfile(request)
+            .pipe(
+                mergeMap((profile: Profile) => {
+                    return this.setActiveSessionForProfile(profile.uid);
+                }),
+                mapTo(undefined)
+            );
     }
 
     checkServerProfileExists(request: CheckUserExistsRequest): Observable<CheckUserExistsResponse> {
