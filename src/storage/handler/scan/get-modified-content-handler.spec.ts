@@ -142,4 +142,57 @@ describe('GetModifiedContentHandler', () => {
             done();
         });
     });
+
+    // Regression: a failed/unresolved scan must never be read as "everything was deleted".
+    // Confirmed on-device: this exact gap made every cold restart mark ALL downloaded content
+    // as deleted (visibility flipped to Parent, content_state downgraded to ONLY_SPINE) even
+    // though the files were still on disk, because a listDir() rejection and an empty
+    // currentStoragePath both used to collapse into deletedIdentifiers = every DB identifier.
+    it('should NOT mark existing content as deleted when the folder listing fails', (done) => {
+        const request: ScanContentContext = {
+            currentStoragePath: 'SAMPLE_CURRENT_STORAGE_PATH'
+        };
+        (mockDbService.execute as jest.Mock) = jest.fn().mockReturnValue(of([
+            { identifier: 'do_downloaded_content', content_type: 'Resource' }
+        ]));
+        (mockFileService.listDir as jest.Mock) = jest.fn().mockRejectedValue(new Error('ENOENT'));
+
+        getModifiedContentHandler.execute(request).subscribe((result) => {
+            expect(result.deletedIdentifiers).toEqual([]);
+            expect(result.newlyAddedIdentifiers).toEqual([]);
+            done();
+        });
+    });
+
+    it('should NOT mark existing content as deleted when currentStoragePath is not yet resolved', (done) => {
+        const request: ScanContentContext = {
+            currentStoragePath: ''
+        };
+        (mockDbService.execute as jest.Mock) = jest.fn().mockReturnValue(of([
+            { identifier: 'do_downloaded_content', content_type: 'Resource' }
+        ]));
+
+        getModifiedContentHandler.execute(request).subscribe((result) => {
+            expect(result.deletedIdentifiers).toEqual([]);
+            expect(result.newlyAddedIdentifiers).toEqual([]);
+            done();
+        });
+    });
+
+    it('should still detect genuinely deleted content when the folder listing succeeds but is empty', (done) => {
+        // The legitimate case this handler exists for: storage was actually scanned
+        // successfully and the content's folder genuinely isn't there anymore.
+        const request: ScanContentContext = {
+            currentStoragePath: 'SAMPLE_CURRENT_STORAGE_PATH'
+        };
+        (mockDbService.execute as jest.Mock) = jest.fn().mockReturnValue(of([
+            { identifier: 'do_actually_removed_content', content_type: 'Resource' }
+        ]));
+        (mockFileService.listDir as jest.Mock) = jest.fn().mockResolvedValue([]);
+
+        getModifiedContentHandler.execute(request).subscribe((result) => {
+            expect(result.deletedIdentifiers).toEqual(['do_actually_removed_content']);
+            done();
+        });
+    });
 });

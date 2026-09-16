@@ -10,7 +10,7 @@ import { GetContentDetailsHandler } from '../get-content-details-handler';
 import { of } from 'rxjs';
 import { ContentUtil } from '../../util/content-util';
 import { ContentEntry } from '../../db/schema';
-import { Visibility, MimeType } from '../../util/content-constants';
+import { Visibility, MimeType, State } from '../../util/content-constants';
 import { UpdateSizeOnDevice } from './update-size-on-device';
 
 jest.mock('./update-size-on-device');
@@ -27,7 +27,14 @@ describe('ExtractPayloads', () => {
         deepLinkBasePath: 'base-path',
         buildConfigPackage: 'package'
     };
+    // Safe no-op defaults. updateContentDB() is awaited now, so a path that reaches the real
+    // implementation surfaces missing mocks as a hard failure instead of a swallowed rejection.
+    // Individual tests still override these where they assert on them.
     const mockDbService: Partial<DbService> = {
+        beginTransaction: jest.fn(),
+        endTransaction: jest.fn(),
+        insert: jest.fn().mockImplementation(() => of(1)),
+        update: jest.fn().mockImplementation(() => of(1))
     };
     const mockDeviceInfo: Partial<DeviceInfo> = {};
     const mockGetContentDetailsHandler: Partial<GetContentDetailsHandler> = {
@@ -1012,6 +1019,79 @@ describe('ExtractPayloads', () => {
         const data = extractPayloads.getContentState(existingContentInDb, contentState);
         // assert
         expect(data).toBe(contentState);
+    });
+
+    // Regression: a re-import must never downgrade an already-ARTIFACT_AVAILABLE row back to
+    // ONLY_SPINE. When doesContentExist() is true, execute() skips the extraction block, so the
+    // local contentState stays at its ONLY_SPINE initial value - yet the MimeType.COLLECTION
+    // clause still writes the model. Confirmed on-device: a course imported correctly as
+    // content_state=2 and was later corrupted to 1. The guard is the getContentState() call
+    // (previously commented out) that takes the max of stored vs computed.
+    it('should NOT downgrade an existing ARTIFACT_AVAILABLE content_state to ONLY_SPINE on re-import', (done) => {
+        // arrange: existing row is already ARTIFACT_AVAILABLE (2) at the same pkgVersion, which
+        // is exactly what makes doesContentExist() return true and skip contentState computation.
+        const existingRow = {
+            identifier: 'do_root_course',
+            server_data: 'SERVER_DATA',
+            local_data: JSON.stringify({ identifier: 'do_root_course', pkgVersion: 1, visibility: Visibility.DEFAULT }),
+            mime_type: MimeType.COLLECTION,
+            manifest_version: 'MANIFEST_VERSION',
+            content_type: 'CONTENT_TYPE',
+            content_state: State.ARTIFACT_AVAILABLE,
+            visibility: Visibility.DEFAULT,
+            path: 'SAMPLE_PATH'
+        };
+        const request: ImportContentContext = {
+            isChildContent: true,
+            ecarFilePath: 'SAMPLE_ECAR_FILE_PATH',
+            tmpLocation: 'SAMPLE_TEMP_LOCATION',
+            destinationFolder: 'SAMPLE_DESTINATION_FOLDER',
+            contentImportResponseList: [],
+            contentIdsToDelete: new Set(),
+            skippedItemsIdentifier: [],
+            items: [{
+                identifier: 'do_root_course',
+                mimeType: MimeType.COLLECTION,
+                appIcon: '*.jpg',
+                contentEncoding: 'identity',
+                contentDisposition: 'inline',
+                pkgVersion: 1,
+                artifactUrl: '',
+                itemSetPreviewUrl: 'https://preview',
+                visibility: Visibility.DEFAULT,
+                contentType: 'Course',
+                primaryCategory: 'Course'
+            }]
+        } as any;
+
+        sbutility.createDirectories = jest.fn((_, __, rs, err) => {
+            rs({ 'do_root_course': { path: 'SAMPLE_PATH' } });
+        });
+        (mockEventsBusService.emit as jest.Mock).mockReturnValue(of());
+        (mockGetContentDetailsHandler.fetchFromDBForAll as jest.Mock).mockReturnValue(of([existingRow]));
+        mockFileService.createDir = jest.fn().mockReturnValue(of(''));
+        mockFileService.copyFile = jest.fn().mockReturnValue(Promise.resolve());
+        mockDeviceInfo.getDeviceID = jest.fn().mockReturnValue(of('sample-device'));
+        jest.spyOn(extractPayloads, 'copyAssets').mockImplementation(() => Promise.resolve());
+
+        let capturedUpdateModels: any[] = [];
+        let capturedInsertModels: any[] = [];
+        jest.spyOn(extractPayloads, 'updateContentDB').mockImplementation((inserts: any, updates: any) => {
+            capturedInsertModels = inserts || [];
+            capturedUpdateModels = updates || [];
+            return Promise.resolve();
+        });
+
+        // act
+        extractPayloads.execute(request).then(() => {
+            // assert: whichever list it landed in, the persisted content_state must still be 2
+            const written = [...capturedInsertModels, ...capturedUpdateModels]
+                .find((m) => m[ContentEntry.COLUMN_NAME_IDENTIFIER] === 'do_root_course');
+            expect(written).toBeDefined();
+            expect(written[ContentEntry.COLUMN_NAME_CONTENT_STATE]).toBe(State.ARTIFACT_AVAILABLE);
+            expect(written[ContentEntry.COLUMN_NAME_CONTENT_STATE]).not.toBe(State.ONLY_SPINE);
+            done();
+        }).catch((e) => done(e));
     });
 
     describe('segregateQuestions()', ()=>{
