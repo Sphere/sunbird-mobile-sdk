@@ -7,7 +7,7 @@ export interface FileService {
 
     readFileFromAssets(fileName: string): Promise<string>;
 
-    writeFile(path: string, fileName: string, text: string, options: IWriteOptions): Promise<{ success: boolean }>;
+    writeFile(path: string, fileName: string, text: string | Blob, options: IWriteOptions): Promise<{ success: boolean }>;
 
     createFile(path: string, fileName: string, replace: boolean): Promise<{ success: boolean, path: string, nativeURL: string }>;
 

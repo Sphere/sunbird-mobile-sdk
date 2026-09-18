@@ -1,6 +1,6 @@
 {
   "name": "@aastrika_npmjs/sunbird-sdk",
-  "version": "7.0.35",
+  "version": "7.0.36",
   "description": "Heart of the sunbird mobile app.",
   "main": "index.js",
   "scripts": {

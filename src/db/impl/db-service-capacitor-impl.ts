@@ -79,7 +79,7 @@ export class DbServiceCapacitorImpl extends DbService {
         if (DbServiceCapacitorImpl.isRowReturningQuery(rawQuery)) {
             return from(
                 this.db.query({ database, statement: rawQuery, values: [] })
-            ).pipe(map(result => result.values || []));
+            ).pipe(map(result => DbServiceCapacitorImpl.stripIosColumnMetadata(result.values)));
         }
         return from(
             this.db.execute({ database, statements: rawQuery, transaction: false })

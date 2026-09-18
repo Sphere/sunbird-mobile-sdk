@@ -267,6 +267,27 @@ export class TelemetrySyncHandler implements ApiRequestHandler<TelemetrySyncRequ
     }
 
     const messageId = UniqueId.generateUniqueId();
+
+    const parsedEvents = events.reduce<any[]>((acc, e) => {
+      try {
+        acc.push(JSON.parse(e[TelemetryEntry.COLUMN_NAME_EVENT]));
+      } catch (err) {
+        // A malformed row (e.g. the literal text "undefined" stored where JSON was expected)
+        // would otherwise throw here and abort the whole batch every sync cycle forever,
+        // since fetchEvents() always re-selects the same oldest-priority batch first.
+        // Drop it from what gets sent — deleteEvents() below still purges it from the local
+        // table by _id regardless of whether it parsed, so it stops blocking future syncs.
+        console.error('[TelemetrySyncHandler] discarding unparseable telemetry event', e[TelemetryEntry._ID], err);
+      }
+      return acc;
+    }, []);
+
+    if (!parsedEvents.length) {
+      return of({
+        processedEventsSize: 0
+      });
+    }
+
     return of({
       processedEvents: this.preprocessors.reduce<any>((acc, current) => {
         return current.process(acc);
@@ -274,7 +295,7 @@ export class TelemetrySyncHandler implements ApiRequestHandler<TelemetrySyncRequ
         id: 'ekstep.telemetry',
         ver: '1.0',
         ts: dayjs().format('YYYY-MM-DDTHH:mm:ss[Z]'),
-        events: events.map((e) => JSON.parse(e[TelemetryEntry.COLUMN_NAME_EVENT])),
+        events: parsedEvents,
         params: {
           did: this.deviceInfo.getDeviceID(),
           msgid: messageId,
@@ -282,7 +303,7 @@ export class TelemetrySyncHandler implements ApiRequestHandler<TelemetrySyncRequ
           requesterId: ''
         }
       }),
-      processedEventsSize: events.length,
+      processedEventsSize: parsedEvents.length,
       messageId
     });
   }

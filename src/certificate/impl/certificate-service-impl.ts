@@ -69,7 +69,7 @@ export class CertificateServiceImpl implements CertificateService {
             const filePath = await FilePathService.getFilePath(FilePaths.EXTERNAL);
             return await this.fileService.writeFile(
                 filePath,
-                fileName, blob as any,
+                fileName, blob,
                 { replace: true }
             ).
                 then(() => {
