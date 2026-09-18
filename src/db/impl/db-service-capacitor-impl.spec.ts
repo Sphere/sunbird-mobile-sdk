@@ -1,4 +1,5 @@
 import 'reflect-metadata';
+import { of } from 'rxjs';
 import { DbServiceCapacitorImpl } from './db-service-capacitor-impl';
 import { CapacitorSQLite } from '@capacitor-community/sqlite';
 
@@ -7,7 +8,6 @@ jest.mock('@capacitor-community/sqlite', () => ({
     CapacitorSQLite: {
         createConnection: jest.fn().mockResolvedValue({}),
         open: jest.fn().mockResolvedValue({}),
-        getVersion: jest.fn().mockResolvedValue({ version: 31 }), // already at target version
         execute: jest.fn().mockResolvedValue({ changes: { changes: 1 } }),
         run: jest.fn().mockResolvedValue({ changes: { changes: 1, lastId: 42 } }),
         query: jest.fn().mockResolvedValue({ values: [{ id: 1, name: 'test' }] }),
@@ -20,8 +20,18 @@ jest.mock('@capacitor-community/sqlite', () => ({
 const mockSdkConfig: any = { dbConfig: { dbName: 'GenieServices.db' } };
 const mockMigrationList: any[] = [];
 
-function makeService() {
-    return new (DbServiceCapacitorImpl as any)(mockSdkConfig, 31, mockMigrationList) as DbServiceCapacitorImpl;
+// @capacitor-community/sqlite does not persist PRAGMA user_version on this database file, so
+// DbServiceCapacitorImpl tracks the applied schema version itself via SharedPreferences instead
+// of db.getVersion() — see the comment on DB_VERSION_PREF_KEY in db-service-capacitor-impl.ts.
+function makeSharedPreferences(storedVersion?: number) {
+    return {
+        getString: jest.fn().mockReturnValue(of(storedVersion === undefined ? undefined : String(storedVersion))),
+        putString: jest.fn().mockReturnValue(of(undefined)),
+    };
+}
+
+function makeService(sharedPreferences = makeSharedPreferences(31)) {
+    return new (DbServiceCapacitorImpl as any)(mockSdkConfig, 31, mockMigrationList, sharedPreferences) as DbServiceCapacitorImpl;
 }
 
 describe('DbServiceCapacitorImpl', () => {
@@ -35,7 +45,6 @@ describe('DbServiceCapacitorImpl', () => {
 
     describe('init()', () => {
         it('strips .db extension and opens connection', async () => {
-            (CapacitorSQLite.getVersion as jest.Mock).mockResolvedValue({ version: 31 });
             await service.init();
             expect(CapacitorSQLite.createConnection).toHaveBeenCalledWith(
                 expect.objectContaining({ database: 'GenieServices' })
@@ -43,17 +52,33 @@ describe('DbServiceCapacitorImpl', () => {
             expect(CapacitorSQLite.open).toHaveBeenCalledWith({ database: 'GenieServices' });
         });
 
-        it('runs onCreate when version is 0', async () => {
-            (CapacitorSQLite.getVersion as jest.Mock).mockResolvedValue({ version: 0 });
+        it('runs onCreate when no version is stored', async () => {
+            service = makeService(makeSharedPreferences(undefined));
             await service.init();
             // execute called for each CREATE TABLE in InitialMigration
             expect(CapacitorSQLite.execute).toHaveBeenCalled();
         });
 
-        it('skips migrations when already at target version', async () => {
-            (CapacitorSQLite.getVersion as jest.Mock).mockResolvedValue({ version: 31 });
+        it('still runs onCreate when already at target version, so the schema self-heals', async () => {
+            // CREATE TABLE IF NOT EXISTS is idempotent; running it unconditionally protects
+            // against the stored version and the database file desyncing.
+            service = makeService(makeSharedPreferences(31));
             await service.init();
-            expect(CapacitorSQLite.execute).not.toHaveBeenCalled();
+            expect(CapacitorSQLite.execute).toHaveBeenCalled();
+        });
+
+        it('persists the current db version when none was stored', async () => {
+            const prefs = makeSharedPreferences(undefined);
+            service = makeService(prefs);
+            await service.init();
+            expect(prefs.putString).toHaveBeenCalledWith('sunbird_capacitor_db_version', '31');
+        });
+
+        it('does not rewrite the version when it is already current', async () => {
+            const prefs = makeSharedPreferences(31);
+            service = makeService(prefs);
+            await service.init();
+            expect(prefs.putString).not.toHaveBeenCalled();
         });
     });
 

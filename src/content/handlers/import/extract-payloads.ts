@@ -222,7 +222,13 @@ export class ExtractPayloads {
             const referenceCount = this.getReferenceCount(existingContentModel, visibility,
                 importContext.isChildContent, importContext.existedContentIdentifiers);
             visibility = this.getContentVisibility(existingContentModel, item['objectType'], importContext.isChildContent, visibility);
-            // contentState = this.getContentState(existingContentModel, contentState);
+            // Never let a re-import downgrade an already-established content_state.
+            // When doesContentExist() is true the extraction block above is skipped entirely, so
+            // contentState still holds its initial ONLY_SPINE value - yet the MimeType.COLLECTION
+            // clause below still writes the model, overwriting a correct ARTIFACT_AVAILABLE with
+            // ONLY_SPINE. getContentState() takes the max of stored vs computed, which is exactly
+            // the guard needed here.
+            contentState = this.getContentState(existingContentModel, contentState);
             ContentUtil.addOrUpdateViralityMetadata(item, this.deviceInfo.getDeviceID().toString());
 
             const sizeOnDevice = 0;
@@ -257,8 +263,15 @@ export class ExtractPayloads {
                 this.postImportProgressEvent(currentCount, importContext.items!.length);
             }
         }
-        // Update/create contents in DB with size_on_device as 0 initially
-        this.updateContentDB(insertNewContentModels, updateNewContentModels);
+        // Update/create contents in DB with size_on_device as 0 initially.
+        // Must be awaited: this write sets content_state to ARTIFACT_AVAILABLE for every
+        // successfully-extracted item (including the course/collection row itself). Firing it
+        // without awaiting let this method's caller (ContentServiceImpl) resolve and emit
+        // CONTENT_EXTRACT_COMPLETED before the transaction actually committed - if the app was
+        // closed in that window, the update was lost even though the files were already on disk
+        // (confirmed on-device: content_state stuck at ONLY_SPINE for a fully-downloaded course
+        // whose artifacts existed on disk).
+        await this.updateContentDB(insertNewContentModels, updateNewContentModels);
         const updateContentFileSizeInDBTimeOutRef = setTimeout(() => {
             // Update the contents in DB with actual size
             this.updateContentFileSizeInDB(importContext, commonContentModelsMap, payloadDestinationPathMap, result);
@@ -363,9 +376,33 @@ export class ExtractPayloads {
                             throw error;
                         });
                 }
+                // Some ecars declare artifactUrl/appIcon as "<identifier>/<filename>" in their
+                // manifest but actually package the file at "<filename>/<filename>" inside the
+                // zip instead - a publish-pipeline packaging defect (confirmed on at least one
+                // Assessment/quiz ecar whose manifest and real zip layout disagreed). Fall back
+                // to that layout before giving up, logging either way so a genuinely missing
+                // file isn't confused with this known mismatch.
+                const fileName = FileUtil.getFileName(asset);
+                let sourceFolder = folderContainingFile;
+                try {
+                    await this.fileService.exists(tempLocationPath.concat(folderContainingFile, '/', fileName));
+                } catch (e) {
+                    const fallbackFolder = '/'.concat(fileName);
+                    try {
+                        await this.fileService.exists(tempLocationPath.concat(fallbackFolder, '/', fileName));
+                        console.warn('[extract-payloads] artifactUrl folder mismatch for', asset,
+                            '- manifest declared folder', folderContainingFile, 'but file found under', fileName,
+                            '(known ecar packaging defect, using fallback path)');
+                        sourceFolder = fallbackFolder;
+                    } catch (e2) {
+                        // Neither layout exists - fall through with the original folder so the
+                        // normal "file not found" failure surfaces exactly as before.
+                    }
+                }
+
                 // If source icon is not available then copy assets is failing and throwing exception.
-                await this.fileService.copyFile(tempLocationPath.concat(folderContainingFile), FileUtil.getFileName(asset),
-                    payloadDestinationPath.concat(folderContainingFile), FileUtil.getFileName(asset));
+                await this.fileService.copyFile(tempLocationPath.concat(sourceFolder), fileName,
+                    payloadDestinationPath.concat(folderContainingFile), fileName);
             }
         } catch (e) {
             console.error('Cannot Copy Asset');
