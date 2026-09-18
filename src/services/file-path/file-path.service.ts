@@ -34,7 +34,10 @@ export class FilePathService {
         path: '',
         directory: dir
       });
-      return result.uri + "/";
+      // getUri() can already return a directory URI with a trailing slash — appending
+      // one unconditionally then produces "…/files//" and compounds further wherever
+      // callers naively join a filename onto it (e.g. `${path}/${fileName}`).
+      return result.uri.endsWith('/') ? result.uri : result.uri + '/';
     } catch (error) {
       console.error('Error getting file path:', error);
       throw new Error(error instanceof Error ? error.message : 'Error getting file path');

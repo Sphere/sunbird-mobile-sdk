@@ -61,7 +61,7 @@ export class CourseCertificateManagerImpl implements CourseCertificateManager {
             const folderUri = await FilePathService.getFilePath(FilePaths.EXTERNAL);
             return await this.fileService.writeFile(
                 folderUri,
-                fileName, blob as any,
+                fileName, blob,
                 { replace: true }
             ).
                 then(() => {

@@ -142,17 +142,28 @@ export class FileServiceImpl implements FileService {
     async writeFile(
         path: string,
         fileName: string,
-        text: string,
+        text: string | Blob,
         options: IWriteOptions = {}
     ): Promise<{ success: boolean }> {
         try {
             const { replace = false } = options;
-            const fullPath = `${path}/${fileName}`
+            // Callers may pass a path with or without a trailing slash (e.g.
+            // FilePathService.getFilePath() always includes one) — normalize instead of
+            // assuming either, to avoid a doubled slash before fileName.
+            const normalizedPath = path.endsWith('/') ? path.slice(0, -1) : path;
+            const fullPath = `${normalizedPath}/${fileName}`;
+
+            // Filesystem.writeFile() treats `encoding` as "data is plain text in this encoding" —
+            // passing binary content (e.g. a certificate PDF Blob) alongside an encoding is
+            // rejected outright with "input parameters aren't valid". Binary data must instead
+            // be base64-encoded and written with no encoding field so the plugin decodes it.
+            const isBlob = text instanceof Blob;
+            const data = isBlob ? await FileServiceImpl.blobToBase64(text as Blob) : text;
 
             await Filesystem.writeFile({
                 path: fullPath,
-                data: text,
-                encoding: Encoding.UTF8,
+                data,
+                ...(isBlob ? {} : { encoding: Encoding.UTF8 }),
                 recursive: true,
                 ...(replace && { replace: true })
             });
@@ -162,6 +173,25 @@ export class FileServiceImpl implements FileService {
             console.error('Error writing file:', error);
             throw error;
         }
+    }
+
+    private static async blobToBase64(blob: Blob): Promise<string> {
+        // FileReader.readAsDataURL() can silently hang on some Android WebView versions —
+        // neither onload nor onerror ever fires for an otherwise perfectly valid Blob, inside
+        // a Capacitor-sandboxed WebView in particular. Blob.arrayBuffer() is a modern,
+        // Promise-based alternative with no such event-listener reliability issue.
+        const buffer = await blob.arrayBuffer();
+        const bytes = new Uint8Array(buffer);
+
+        // String.fromCharCode(...bytes) can blow the call stack on large files — build the
+        // binary string in chunks instead.
+        const CHUNK_SIZE = 0x8000;
+        let binary = '';
+        for (let i = 0; i < bytes.length; i += CHUNK_SIZE) {
+            binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK_SIZE));
+        }
+
+        return btoa(binary);
     }
 
     /**
@@ -180,7 +210,8 @@ export class FileServiceImpl implements FileService {
         replace: boolean,
     ): Promise<{ success: boolean, path: string, nativeURL: string }> {
         try {
-            const fullPath = `${path}/${fileName}`
+            const normalizedPath = path.endsWith('/') ? path.slice(0, -1) : path;
+            const fullPath = `${normalizedPath}/${fileName}`;
             const fileExists = await this.checkFileExists(fullPath);
 
             if (fileExists && !replace) {
