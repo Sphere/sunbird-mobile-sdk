@@ -1,6 +1,6 @@
 {
   "name": "@project-sunbird/sunbird-sdk",
-  "version": "0.0.0",
+  "version": "7.0.38",
   "main": "index.js",
   "dependencies": {
     "ajv": "8.12.0",

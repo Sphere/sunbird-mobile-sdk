@@ -1,6 +1,6 @@
 {
   "name": "@aastrika_npmjs/sunbird-sdk",
-  "version": "7.0.36",
+  "version": "7.0.38",
   "description": "Heart of the sunbird mobile app.",
   "main": "index.js",
   "scripts": {
@@ -49,7 +49,7 @@
     "jszip": "^3.10.1",
     "rxjs": ">=6",
     "sb-cordova-plugin-customtabs": "git+https://github.com/Sunbird-Ed/sb-cordova-plugin-customtabs.git",
-    "sb-cordova-plugin-db": "git+https://github.com/Sunbird-Ed/sb-cordova-plugin-db.git",
+    "sb-cordova-plugin-db": "git+https://github.com/Sphere/capacitor-plugin-db-#capacitor-db-sync-fix",
     "sb-cordova-plugin-utility": "git+https://github.com/Sunbird-Ed/sb-cordova-plugin-utility/tree/release-6.0.0"
   },
   "devDependencies": {

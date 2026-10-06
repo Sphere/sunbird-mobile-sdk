@@ -40,11 +40,29 @@ const clientServicesExternals = function clientServicesExternalsFactory() {
     };
 };
 
+// Capacitor plugins are peerDependencies provided by the host app; bundling them would
+// duplicate @capacitor/core and pull ES2020+ syntax that webpack 4 cannot parse.
+const capacitorExternals = function capacitorExternalsFactory() {
+    return function capacitorExternals(context, request, callback) {
+        if (request.match(/^(@capacitor\/|@capacitor-community\/|@capgo\/|capacitor-plugin-|jszip$)/)) {
+            return callback(null, {
+                root: request,
+                commonjs: request,
+                commonjs2: request,
+                amd: request
+            });
+        }
+
+        callback();
+    };
+};
+
 const config = {
     entry: './src/index.ts',
     externals: [
         webpackRxjsExternals(),
-        clientServicesExternals()
+        clientServicesExternals(),
+        capacitorExternals()
         // other externals here
     ],
     output: {
