@@ -3,11 +3,17 @@ import {EventsBusService, DownloadRequest, ContentDownloadRequest} from '../../.
 import {SharedPreferencesLocalStorage} from '../../shared-preferences/impl/shared-preferences-local-storage';
 import {TelemetryLogger} from '../../../telemetry/util/telemetry-logger';
 import {of} from 'rxjs';
-import {take} from 'rxjs/operators';
+import {filter, take} from 'rxjs/operators';
 import {DownloadCompleteDelegate} from '../def/download-complete-delegate';
 import Set from 'typescript-collections/dist/lib/Set';
 
 jest.mock('../../../telemetry/util/telemetry-logger');
+// Download paths are now resolved through Capacitor Filesystem via FilePathService (unavailable under jsdom)
+jest.mock('../../../services/file-path/file-path.service', () => ({
+    FilePathService: {
+        getFilePath: () => Promise.resolve('file:///some_external_root/')
+    }
+}));
 
 describe('DownloadServiceImpl', () => {
     let downloadService: DownloadServiceImpl;
@@ -362,9 +368,13 @@ describe('DownloadServiceImpl', () => {
 
             // act
             jest.useFakeTimers();
+            // currentDownloadRequest$ is now set asynchronously (downloadedFilePath is resolved via
+            // FilePathService), so advance the polling timers once each request is actually active
+            downloadService['currentDownloadRequest$'].pipe(
+                filter((r?: DownloadRequest) => !!r && !!r.downloadId)
+            ).subscribe(() => Promise.resolve().then(() => jest.advanceTimersByTime(10000)));
             downloadService.onInit().subscribe(() => {}, (e) => fail(e));
             downloadService.download([downloadRequest_1, downloadRequest_2]).pipe().toPromise();
-            jest.advanceTimersByTime(10000);
         });
     });
 
@@ -439,7 +449,12 @@ describe('DownloadServiceImpl', () => {
             });
 
             // act
-            downloadService.cancelAll().toPromise();
+            // currentDownloadRequest$ is now set asynchronously (downloadedFilePath is resolved via
+            // FilePathService), so cancel once the first request is actually in progress
+            downloadService['currentDownloadRequest$'].pipe(
+                filter((r?: DownloadRequest) => !!r && !!r.downloadId),
+                take(1)
+            ).subscribe(() => downloadService.cancelAll().toPromise());
         });
     });
 

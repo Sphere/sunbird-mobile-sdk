@@ -4,6 +4,15 @@ import {FileService} from '../../util/file/def/file-service';
 import {KeyValueStore} from '../../key-value-store';
 import {CsCourseService} from '@project-sunbird/client-services/services/course';
 import {CourseCertificateManagerImpl} from './course-certificate-manager-impl';
+import {FilePathService} from '../../services/file-path/file-path.service';
+import {FilePaths} from '../../services/file-path/file-path.enum';
+
+// Paths are now resolved through Capacitor Filesystem via FilePathService (unavailable under jsdom)
+jest.mock('../../services/file-path/file-path.service', () => ({
+    FilePathService: {
+        getFilePath: jest.fn(() => Promise.resolve('file:///some_external_data_root/'))
+    }
+}));
 
 describe('CourseCertificateManagerImpl', () => {
     class InMemoryKeyValueStore implements KeyValueStore {
@@ -155,15 +164,13 @@ describe('CourseCertificateManagerImpl', () => {
                 spyOn(mockCsCourseService, 'getSignedCourseCertificate').and.returnValue(throwError(new Error('UNKNOWN_ERROR')));
 
                 // act
-                try {
-                    await courseCertificateManager.getCertificate(request).toPromise();
-                    fail();
-                } finally {
-                    // assert
-                    expect(mockKeyValueStore.setValue).not.toHaveBeenCalled();
-                    expect(mockKeyValueStore.getValue).toHaveBeenCalled();
-                    done();
-                }
+                // nothing usable in cache, so the original fetch error is rethrown
+                await expect(courseCertificateManager.getCertificate(request).toPromise()).rejects.toThrow('UNKNOWN_ERROR');
+
+                // assert
+                expect(mockKeyValueStore.setValue).not.toHaveBeenCalled();
+                expect(mockKeyValueStore.getValue).toHaveBeenCalled();
+                done();
             });
         });
     });
@@ -178,17 +185,15 @@ describe('CourseCertificateManagerImpl', () => {
             };
 
             // act
-            await courseCertificateManager.downloadCertificate({
-                fileName: 'SOME_FILE_NAME',
-                mimeType: 'application/pdf',
-                blob: new Blob()
-            }).toPromise();
+            const response = await courseCertificateManager.downloadCertificate(request).toPromise();
 
             // assert
+            expect(FilePathService.getFilePath).toHaveBeenCalledWith(FilePaths.EXTERNAL);
             expect(mockFileService.writeFile).toHaveBeenCalledWith(
-                cordova.file.externalDataDirectory , request.fileName, request.blob,
+                'file:///some_external_data_root/', request.fileName, request.blob,
                 {replace: true}
             );
+            expect(response).toEqual({path: 'file:///some_external_data_root/SOME_FILE_NAME'});
         });
     });
 });

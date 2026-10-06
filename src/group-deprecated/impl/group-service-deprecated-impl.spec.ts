@@ -21,7 +21,8 @@ describe('GroupServiceImpl', () => {
         })
     };
     const mockTelemetryService: Partial<TelemetryService> = {
-        feedback: jest.fn().mockImplementation(() => {})
+        feedback: jest.fn().mockImplementation(() => {}),
+        audit: jest.fn().mockImplementation(() => of(true))
     };
     const mockSharedPreferences: SharedPreferences = instance(mock<SharedPreferences>());
     beforeAll(() => {
@@ -30,6 +31,7 @@ describe('GroupServiceImpl', () => {
         container.bind<DbService>(InjectionTokens.DB_SERVICE).toConstantValue(mockDbService as DbService);
         container.bind<ProfileService>(InjectionTokens.PROFILE_SERVICE).toConstantValue(mockProfileService as ProfileService);
         container.bind<SharedPreferences>(InjectionTokens.SHARED_PREFERENCES).toConstantValue(mockSharedPreferences);
+        container.bind<TelemetryService>(InjectionTokens.TELEMETRY_SERVICE).toConstantValue(mockTelemetryService as TelemetryService);
 
         groupService = container.get(InjectionTokens.GROUP_SERVICE);
     });

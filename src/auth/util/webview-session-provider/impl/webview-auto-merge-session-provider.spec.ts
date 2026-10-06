@@ -3,7 +3,12 @@ import {TelemetryService} from '../../../../telemetry';
 import {ApiService} from '../../../../api';
 import {EventsBusService} from '../../../../events-bus';
 import {WebviewRunner} from '../def/webview-runner';
-import {of} from 'rxjs';
+import {of, throwError} from 'rxjs';
+import {AuthEventType} from '../../../def/auth-event';
+
+const b64url = (o: any) => Buffer.from(JSON.stringify(o)).toString('base64')
+    .replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+const SAMPLE_ACCESS_TOKEN = b64url({alg: 'RS256'}) + '.' + b64url({sub: 'USER_ID', exp: 2000}) + '.sig';
 import {WebviewAutoMergeSessionProvider} from './webview-auto-merge-session-provider';
 import {mockMigrateConfig} from './webview-auto-merge-session-provider.spec.data';
 

@@ -15,7 +15,9 @@ export const mockSdkConfig: Partial<SdkConfig> = {
             mobileAppConsumer: 'MOBILE_APP_CONSUMER',
             channelId: 'CHANNEL_ID',
             producerId: 'PRODUCER_ID',
-            producerUniqueId: 'aastrika.app'
+            producerUniqueId: 'aastrika.app',
+            version: 'SAMPLE_VERSION',
+            build: 'SAMPLE_BUILD'
         },
         cached_requests: {
             timeToLive: 2 * 60 * 60 * 1000

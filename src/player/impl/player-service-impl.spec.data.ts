@@ -15,7 +15,9 @@ export const mockSdkConfigWithSamplePlayerConfig: Partial<SdkConfig> = {
             mobileAppConsumer: 'SAMPLE_MOBILE_APP_CONSTANT',
             channelId: 'SAMPLE_CHANNEL_ID',
             producerId: 'SAMPLE_PRODUCER_ID',
-            producerUniqueId: 'SAMPLE_PRODUCER_UNIQUE_ID'
+            producerUniqueId: 'SAMPLE_PRODUCER_UNIQUE_ID',
+            version: 'SAMPLE_VERSION',
+            build: 'SAMPLE_BUILD'
         },
         cached_requests: {
             timeToLive: 2 * 60 * 60 * 1000

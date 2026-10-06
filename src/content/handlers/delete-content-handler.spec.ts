@@ -137,7 +137,10 @@ describe('DeleteContentHandler', () => {
             jest.spyOn(ContentUtil, 'getFirstPartOfThePathNameOnLastDelimiter').mockImplementation(() => {
                 return undefined;
             });
-            sbutility.rm = jest.fn((_, __, cb, err) => err({error: 'error'}));
+            // deleteOrUpdateContent() fires rm() without awaiting it, so a failing rm surfaces as an
+            // unhandled rejection (fatal under Node >= 15). This test targets contentRootPath === undefined,
+            // so rm succeeds here.
+            sbutility.rm = jest.fn((_, __, cb, err) => cb({}));
             // act
             await deleteContentHandler.deleteAllChildren(request, isChildContent).then(() => {
                 // assert

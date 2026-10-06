@@ -32,6 +32,8 @@ describe('ValidateEcar', () => {
 
     beforeEach(() => {
         jest.clearAllMocks();
+        // FileService.removeRecursively is promise based; source chains .catch() on it
+        (mockFileService.removeRecursively as jest.Mock).mockResolvedValue({success: true});
     });
 
     it('should be create an instance of ValidateEcar', () => {
@@ -579,5 +581,55 @@ describe('ValidateEcar', () => {
             done();
         });
         // assert
+    });
+
+    it('should convert hierarchy.json into a manifest archive when hierarchy file is present', async () => {
+        // arrange
+        const request: ImportContentContext = {
+            isChildContent: false,
+            ecarFilePath: 'SAMPLE_ECAR_FILE_PATH',
+            tmpLocation: 'SAMPLE_TEMP_LOCATION',
+            destinationFolder: 'SAMPLE_DESTINATION_FOLDER',
+            contentImportResponseList: [],
+            contentIdsToDelete: new Set(),
+            skippedItemsIdentifier: []
+        };
+        const hierarchy = {
+            ver: '2.0',
+            content: {
+                identifier: 'do_root', status: 'Live', name: 'root',
+                children: [{identifier: 'do_child', name: 'child', objectType: 'Content', status: 'Live'}]
+            }
+        };
+        mockFileService.readAsText = jest.fn((_, fileName) =>
+            fileName === 'hierarchy.json' ? Promise.resolve(JSON.stringify(hierarchy)) : Promise.reject('NOT_EXPECTED')) as any;
+        (mockGetContentDetailsHandler.fetchFromDBForAll as jest.Mock).mockReturnValue(of([]));
+        // act
+        const val = await validateEcar.execute(request);
+        // assert
+        expect(mockFileService.readAsText).toHaveBeenCalledTimes(1);
+        expect(mockFileService.readAsText).toHaveBeenCalledWith('SAMPLE_TEMP_LOCATION', 'hierarchy.json');
+        expect(val.body.manifestVersion).toBe('2.0');
+        expect(val.body.items.map((i) => i.identifier)).toEqual(['do_root', 'do_child']);
+        expect(val.body.items[1].visibility).toBe('Parent');
+        expect(mockGetContentDetailsHandler.fetchFromDBForAll).toHaveBeenCalledWith('\'do_root\',\'do_child\'');
+    });
+
+    it('should fall back to manifest.json and remove temp location when no manifest data found', async () => {
+        // arrange
+        const request: ImportContentContext = {
+            isChildContent: false,
+            ecarFilePath: 'SAMPLE_ECAR_FILE_PATH',
+            tmpLocation: 'SAMPLE_TEMP_LOCATION',
+            destinationFolder: 'SAMPLE_DESTINATION_FOLDER',
+            contentImportResponseList: [],
+            contentIdsToDelete: new Set()
+        };
+        mockFileService.readAsText = jest.fn((_, fileName) =>
+            fileName === 'hierarchy.json' ? Promise.reject('NOT_FOUND') : Promise.resolve('')) as any;
+        // act / assert
+        await expect(validateEcar.execute(request)).rejects.toMatchObject({_errorMesg: 'IMPORT_FAILED_MANIFEST_FILE_NOT_FOUND'});
+        expect(mockFileService.readAsText).toHaveBeenCalledWith('SAMPLE_TEMP_LOCATION', 'manifest.json');
+        expect(mockFileService.removeRecursively).toHaveBeenCalledWith('SAMPLE_TEMP_LOCATION');
     });
 });

@@ -25,7 +25,9 @@ describe('AppInfoImpl', () => {
                 mobileAppConsumer: 'SAMPLE_MOBILE_APP_CONSTANT',
                 channelId: 'SAMPLE_CHANNEL_ID',
                 producerId: 'SAMPLE_PRODUCER_ID',
-                producerUniqueId: 'SAMPLE_PRODUCER_UNIQUE_ID'
+                producerUniqueId: 'SAMPLE_PRODUCER_UNIQUE_ID',
+                version: 'SAMPLE_VERSION',
+                build: 'SAMPLE_BUILD'
             },
             cached_requests: {
                 timeToLive: 2 * 60 * 60 * 1000
@@ -39,12 +41,30 @@ describe('AppInfoImpl', () => {
         }
     };
 
+    const originalCapacitor = window['Capacitor'];
+
     beforeAll(() => {
-        window['cordova'] = {getAppVersion: {getAppName: (cb) => cb('SOME_APP_NAME')}} as any;
+        // AppInfoImpl now reads app name/version/build from the Capacitor App plugin
+        window['Capacitor'] = {
+            Plugins: {
+                App: {
+                    getInfo: () => Promise.resolve({
+                        id: 'org.sunbird.app',
+                        name: 'SOME_APP_NAME',
+                        version: '1.0.0',
+                        build: '42'
+                    })
+                }
+            }
+        };
         appInfoImpl = new AppInfoImpl(
             mockSdkConfig as SdkConfig,
             mockSharedPreferences as SharedPreferences
         );
+    });
+
+    afterAll(() => {
+        window['Capacitor'] = originalCapacitor;
     });
 
     beforeEach(() => {
@@ -62,8 +82,16 @@ describe('AppInfoImpl', () => {
     it('should return app version name', () => {
         // arrange
         // act
-        appInfoImpl.getVersionName();
-        // arrange
+        // assert
+        // non-cordova platform (platform unset) defaults to the debug version name
+        expect(appInfoImpl.getVersionName()).toEqual('sunbird-debug');
+    });
+
+    it('should return app name from Capacitor App plugin', (done) => {
+        setTimeout(() => {
+            expect(appInfoImpl.getAppName()).toEqual('SOME_APP_NAME');
+            done();
+        });
     });
 
     describe('init()', () => {
@@ -84,7 +112,9 @@ describe('AppInfoImpl', () => {
                         mobileAppConsumer: 'SAMPLE_MOBILE_APP_CONSTANT',
                         channelId: 'SAMPLE_CHANNEL_ID',
                         producerId: 'SAMPLE_PRODUCER_ID',
-                        producerUniqueId: 'SAMPLE_PRODUCER_UNIQUE_ID'
+                        producerUniqueId: 'SAMPLE_PRODUCER_UNIQUE_ID',
+                        version: 'SAMPLE_VERSION',
+                        build: 'SAMPLE_BUILD'
                     },
                     cached_requests: {
                         timeToLive: 2 * 60 * 60 * 1000
@@ -138,7 +168,8 @@ describe('AppInfoImpl', () => {
                             channelId: 'channelId',
                             producerId: 'producerId',
                             deviceId: 'deviceId',
-                            appVersion: 'SOME_APP_NAME'
+                            // versionName is now `${version}-${build}` from App.getInfo()
+                            appVersion: '1.0.0-42'
                         },
                         api: {
                             host: 'host',
@@ -182,7 +213,9 @@ describe('AppInfoImpl', () => {
                     mobileAppConsumer: 'SAMPLE_MOBILE_APP_CONSTANT',
                     channelId: 'SAMPLE_CHANNEL_ID',
                     producerId: 'SAMPLE_PRODUCER_ID',
-                    producerUniqueId: 'SAMPLE_PRODUCER_UNIQUE_ID'
+                    producerUniqueId: 'SAMPLE_PRODUCER_UNIQUE_ID',
+                    version: 'SAMPLE_VERSION',
+                    build: 'SAMPLE_BUILD'
                 },
                 cached_requests: {
                     timeToLive: 2 * 60 * 60 * 1000
@@ -199,12 +232,6 @@ describe('AppInfoImpl', () => {
             mockSdkConfigApi as SdkConfig,
             mockSharedPreferences as SharedPreferences
         );
-        spyOn(sbutility, 'getBuildConfigValue').and.callFake((a, b, c, d) => {
-            setTimeout(() => {
-                c('2.6.0'),
-                d('buildConfig_error');
-            });
-        });
         // act
        await appInfoImpl.init().then(() => {
             // assert
