@@ -134,7 +134,7 @@ describe('ExtractPayloads', () => {
                 visibility: Visibility.DEFAULT
             }]));
             mockFileService.createDir = jest.fn().mockImplementation(() => { });
-            (mockFileService.createDir as jest.Mock).mockReturnValue(of(''));
+            (mockFileService.createDir as jest.Mock).mockResolvedValue({ nativeURL: 'sample-native-url' });
             mockDeviceInfo.getDeviceID = jest.fn().mockImplementation(() => { });
             (mockDeviceInfo.getDeviceID as jest.Mock).mockReturnValue(of('sample-device'));
             jest.spyOn(extractPayloads, 'copyAssets').mockImplementation(() => {
@@ -316,7 +316,7 @@ describe('ExtractPayloads', () => {
                 contentMetadata: 'CONTENT_METADATA'
             }]));
             mockFileService.createDir = jest.fn().mockImplementation(() => { });
-            (mockFileService.createDir as jest.Mock).mockReturnValue(of(''));
+            (mockFileService.createDir as jest.Mock).mockResolvedValue({ nativeURL: 'sample-native-url' });
             mockDeviceInfo.getDeviceID = jest.fn().mockImplementation(() => { });
             (mockDeviceInfo.getDeviceID as jest.Mock).mockReturnValue(of('sample-device'));
             jest.spyOn(extractPayloads, 'copyAssets').mockImplementation(() => {
@@ -402,7 +402,7 @@ describe('ExtractPayloads', () => {
                 contentMetadata: 'CONTENT_METADATA'
             }]));
             mockFileService.createDir = jest.fn().mockImplementation(() => { });
-            (mockFileService.createDir as jest.Mock).mockReturnValue(of(''));
+            (mockFileService.createDir as jest.Mock).mockResolvedValue({ nativeURL: 'sample-native-url' });
             mockDeviceInfo.getDeviceID = jest.fn().mockImplementation(() => { });
             (mockDeviceInfo.getDeviceID as jest.Mock).mockReturnValue(of('sample-device'));
             jest.spyOn(extractPayloads, 'copyAssets').mockImplementation(() => {
@@ -488,7 +488,7 @@ describe('ExtractPayloads', () => {
                 contentMetadata: 'CONTENT_METADATA'
             }]));
             mockFileService.createDir = jest.fn().mockImplementation(() => { });
-            (mockFileService.createDir as jest.Mock).mockReturnValue(of(''));
+            (mockFileService.createDir as jest.Mock).mockResolvedValue({ nativeURL: 'sample-native-url' });
             mockDeviceInfo.getDeviceID = jest.fn().mockImplementation(() => { });
             (mockDeviceInfo.getDeviceID as jest.Mock).mockReturnValue(of('sample-device'));
             jest.spyOn(extractPayloads, 'copyAssets').mockImplementation(() => {
@@ -572,7 +572,7 @@ describe('ExtractPayloads', () => {
                 contentMetadata: 'CONTENT_METADATA'
             }]));
             mockFileService.createDir = jest.fn().mockImplementation(() => { });
-            (mockFileService.createDir as jest.Mock).mockReturnValue(of(''));
+            (mockFileService.createDir as jest.Mock).mockResolvedValue({ nativeURL: 'sample-native-url' });
             mockDeviceInfo.getDeviceID = jest.fn().mockImplementation(() => { });
             (mockDeviceInfo.getDeviceID as jest.Mock).mockReturnValue(of('sample-device'));
             jest.spyOn(extractPayloads, 'copyAssets').mockImplementation(() => {
@@ -656,7 +656,7 @@ describe('ExtractPayloads', () => {
                 contentMetadata: 'CONTENT_METADATA'
             }]));
             mockFileService.createDir = jest.fn().mockImplementation(() => { });
-            (mockFileService.createDir as jest.Mock).mockReturnValue(of(''));
+            (mockFileService.createDir as jest.Mock).mockResolvedValue({ nativeURL: 'sample-native-url' });
             mockDeviceInfo.getDeviceID = jest.fn().mockImplementation(() => { });
             (mockDeviceInfo.getDeviceID as jest.Mock).mockReturnValue(of('sample-device'));
             jest.spyOn(extractPayloads, 'copyAssets').mockImplementation(() => {
@@ -1069,7 +1069,7 @@ describe('ExtractPayloads', () => {
         });
         (mockEventsBusService.emit as jest.Mock).mockReturnValue(of());
         (mockGetContentDetailsHandler.fetchFromDBForAll as jest.Mock).mockReturnValue(of([existingRow]));
-        mockFileService.createDir = jest.fn().mockReturnValue(of(''));
+        mockFileService.createDir = jest.fn().mockResolvedValue({ nativeURL: 'sample-native-url' });
         mockFileService.copyFile = jest.fn().mockReturnValue(Promise.resolve());
         mockDeviceInfo.getDeviceID = jest.fn().mockReturnValue(of('sample-device'));
         jest.spyOn(extractPayloads, 'copyAssets').mockImplementation(() => Promise.resolve());

@@ -102,6 +102,9 @@ describe('GetContentDetailsHandler', () => {
             }
         }));
         spyOn(getContentDetailsHandler, 'fetchFromServer').and.returnValue(of([]));
+        // source persists refreshed server data via dbService.update after emitting local content
+        mockDbService.update = jest.fn().mockImplementation(() => of(undefined));
+        mockEventsBusService.emit = jest.fn();
         getContentDetailsHandler.handle(request).subscribe(() => {
             // assert
             expect(mockDbService.read).toHaveBeenCalled();

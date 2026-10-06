@@ -32,6 +32,14 @@ describe('SummaryTelemetryEventHandler', () => {
 
     beforeEach(() => {
         jest.clearAllMocks();
+        mockSummarizerService.saveLearnerAssessmentDetails = jest.fn(() => of(true));
+        mockSummarizerService.saveLearnerContentSummaryDetails = jest.fn(() => of(true));
+        mockCourseService.captureAssessmentEvent = jest.fn();
+    });
+
+    afterEach(() => {
+        // restore JSON.parse spies so they don't leak into other tests
+        jest.restoreAllMocks();
     });
 
     it('should be create a instance of summaryTelemetryEventHandler', () => {
@@ -194,7 +202,7 @@ describe('SummaryTelemetryEventHandler', () => {
         });
         const data = (mockSharedPreference.getString as jest.Mock)
             .mockReturnValue(of(''));
-        JSON.parse = jest.fn().mockImplementation().mockImplementationOnce(() => {
+        jest.spyOn(JSON, 'parse').mockImplementationOnce(() => {
             return data;
         });
 
@@ -213,6 +221,7 @@ describe('SummaryTelemetryEventHandler', () => {
     it('should added content in content marker table for pid is contentPlayer', (done) => {
         // arrange
         mockCourseService.resetCapturedAssessmentEvents = () => of('DEFAULT_CHANNEL');
+        mockContentService.setContentMarker = jest.fn(() => of(true));
         // act
         summaryTelemetryEventHandler.handle(telemetry).subscribe(() => {
             // assert
@@ -227,7 +236,7 @@ describe('SummaryTelemetryEventHandler', () => {
         });
         const data = (mockSharedPreference.getString as jest.Mock)
             .mockReturnValue(of('{"userId": "user_id","courseId": "course_Id","batchId": "batch_id"}'));
-        JSON.parse = jest.fn().mockImplementation().mockImplementationOnce(() => {
+        jest.spyOn(JSON, 'parse').mockImplementationOnce(() => {
             return data;
         });
         // telemetry.object.type = 'course';

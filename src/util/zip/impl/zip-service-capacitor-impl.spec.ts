@@ -3,7 +3,7 @@ import { ZipServiceCapacitorImpl } from './zip-service-capacitor-impl';
 
 // ── Mock @capacitor/filesystem ────────────────────────────────────────────────
 const mockReadFile = jest.fn();
-const mockWriteFile = jest.fn().mockResolvedValue({ uri: 'file://out' });
+const mockWriteFile = jest.fn();
 const mockReaddir = jest.fn();
 
 jest.mock('@capacitor/filesystem', () => ({
@@ -16,17 +16,49 @@ jest.mock('@capacitor/filesystem', () => ({
     Directory: {},
 }));
 
+// ── Mock @capgo/capacitor-zip ─────────────────────────────────────────────────
+// (the real module's zip.js dependency needs TransformStream, which jsdom lacks)
+const mockNativeUnzip = jest.fn();
+
+jest.mock('@capgo/capacitor-zip', () => ({
+    CapacitorZip: {
+        unzip: (...a: any[]) => mockNativeUnzip(...a),
+    },
+}));
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-// Build a real JSZip base64 string containing the given files
-async function makeZipBase64(files: Record<string, string>): Promise<string> {
-    const JSZip = require('jszip');
-    const zip = new JSZip();
-    for (const [path, content] of Object.entries(files)) {
-        zip.file(path, content);
-    }
-    return zip.generateAsync({ type: 'base64' });
+const toBase64 = (s: string) => Buffer.from(s).toString('base64');
+
+function runUnzip(service: ZipServiceCapacitorImpl, source: string, target: string): Promise<void> {
+    return new Promise<void>((resolve, reject) => service.unzip(source, { target }, resolve, reject));
 }
+
+function runZip(
+    service: ZipServiceCapacitorImpl,
+    source: string,
+    target: string,
+    skipDirs: string[] = [],
+    skipFiles: string[] = []
+): Promise<void> {
+    return new Promise<void>((resolve, reject) =>
+        service.zip(source, { target }, skipDirs, skipFiles, resolve, reject));
+}
+
+// Read back the zip that zip() wrote via Filesystem.writeFile
+async function readWrittenZip(): Promise<Record<string, string>> {
+    const JSZip = require('jszip');
+    const zip = await JSZip.loadAsync(mockWriteFile.mock.calls[0][0].data, { base64: true });
+    const out: Record<string, string> = {};
+    for (const name of Object.keys(zip.files)) {
+        if (!zip.files[name].dir) {
+            out[name] = await zip.file(name).async('string');
+        }
+    }
+    return out;
+}
+
+const flushPromises = () => new Promise(resolve => setTimeout(resolve, 0));
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -35,165 +67,230 @@ describe('ZipServiceCapacitorImpl', () => {
 
     beforeEach(() => {
         jest.clearAllMocks();
+        mockWriteFile.mockResolvedValue({ uri: 'file:///out' });
+        mockNativeUnzip.mockResolvedValue(undefined);
+        jest.spyOn(console, 'log').mockImplementation(() => {});
+        jest.spyOn(console, 'error').mockImplementation(() => {});
         service = new ZipServiceCapacitorImpl();
+    });
+
+    it('should be able to create an instance', () => {
+        expect(service).toBeTruthy();
     });
 
     // ── unzip ─────────────────────────────────────────────────────────────────
 
     describe('unzip()', () => {
-        it('reads zip, extracts all files to target directory', async () => {
-            const base64zip = await makeZipBase64({
-                'manifest.json': '{"id":"c1"}',
-                'assets/img.png': 'pngdata'
-            });
-            mockReadFile.mockResolvedValue({ data: base64zip });
+        it('should strip the file:// scheme from well-formed URIs before calling native unzip', async () => {
+            await runUnzip(service, 'file:///storage/content.ecar', 'file:///storage/tmp/');
 
-            await new Promise<void>((resolve, reject) => {
-                service.unzip('file:///storage/content.ecar', { target: 'file:///storage/tmp/' }, resolve, reject);
-            });
-
-            expect(mockReadFile).toHaveBeenCalledWith({ path: 'file:///storage/content.ecar' });
-            expect(mockWriteFile).toHaveBeenCalledTimes(2);
-
-            const writtenPaths = mockWriteFile.mock.calls.map((c: any[]) => c[0].path);
-            expect(writtenPaths).toContain('file:///storage/tmp/manifest.json');
-            expect(writtenPaths).toContain('file:///storage/tmp/assets/img.png');
-        });
-
-        it('appends slash between target dir and relative path when needed', async () => {
-            const base64zip = await makeZipBase64({ 'file.txt': 'hello' });
-            mockReadFile.mockResolvedValue({ data: base64zip });
-
-            await new Promise<void>((resolve, reject) => {
-                // target WITHOUT trailing slash
-                service.unzip('file:///src.zip', { target: 'file:///dest' }, resolve, reject);
-            });
-
-            expect(mockWriteFile).toHaveBeenCalledWith(
-                expect.objectContaining({ path: 'file:///dest/file.txt' })
-            );
-        });
-
-        it('calls errorCallback when readFile fails', async () => {
-            mockReadFile.mockRejectedValue(new Error('read error'));
-
-            await new Promise<void>((resolve) => {
-                service.unzip('bad.zip', { target: '/tmp/' }, () => resolve(), (e) => {
-                    expect(e.message).toBe('read error');
-                    resolve();
-                });
+            expect(mockNativeUnzip).toHaveBeenCalledTimes(1);
+            expect(mockNativeUnzip).toHaveBeenCalledWith({
+                source: '/storage/content.ecar',
+                destination: '/storage/tmp/'
             });
         });
 
-        it('skips directory entries in the zip', async () => {
-            const JSZip = require('jszip');
-            const zip = new JSZip();
-            zip.folder('emptyDir');           // directory entry
-            zip.file('real.txt', 'content');
-            const base64zip = await zip.generateAsync({ type: 'base64' });
-            mockReadFile.mockResolvedValue({ data: base64zip });
+        it('should normalise malformed two-slash file:// URIs to absolute paths', async () => {
+            await runUnzip(service, 'file://storage/content.ecar', 'file://storage/tmp');
 
-            await new Promise<void>((resolve, reject) => {
-                service.unzip('file:///src.zip', { target: '/out/' }, resolve, reject);
+            expect(mockNativeUnzip).toHaveBeenCalledWith({
+                source: '/storage/content.ecar',
+                destination: '/storage/tmp'
             });
+        });
 
-            // Only the file entry should be written, not the folder
-            expect(mockWriteFile).toHaveBeenCalledTimes(1);
-            expect(mockWriteFile.mock.calls[0][0].path).toContain('real.txt');
+        it('should pass plain absolute paths through unchanged', async () => {
+            await runUnzip(service, '/storage/content.ecar', '/storage/tmp');
+
+            expect(mockNativeUnzip).toHaveBeenCalledWith({
+                source: '/storage/content.ecar',
+                destination: '/storage/tmp'
+            });
+        });
+
+        it('should leave relative paths as-is', async () => {
+            await runUnzip(service, 'content.ecar', 'tmp');
+
+            expect(mockNativeUnzip).toHaveBeenCalledWith({ source: 'content.ecar', destination: 'tmp' });
+        });
+
+        it('should invoke successCallback when native unzip resolves', async () => {
+            const successCallback = jest.fn();
+            const errorCallback = jest.fn();
+
+            service.unzip('file:///a.zip', { target: 'file:///b' }, successCallback, errorCallback);
+            await flushPromises();
+
+            expect(successCallback).toHaveBeenCalledTimes(1);
+            expect(errorCallback).not.toHaveBeenCalled();
+        });
+
+        it('should invoke errorCallback and log when native unzip rejects', async () => {
+            const error = new Error('native unzip failed');
+            mockNativeUnzip.mockRejectedValue(error);
+            const successCallback = jest.fn();
+            const errorCallback = jest.fn();
+
+            service.unzip('file:///a.zip', { target: 'file:///b' }, successCallback, errorCallback);
+            await flushPromises();
+
+            expect(errorCallback).toHaveBeenCalledWith(error);
+            expect(successCallback).not.toHaveBeenCalled();
+            expect(console.error).toHaveBeenCalledWith('[ECAR] Native Capacitor unzip failed:', error);
+        });
+
+        it('should not throw when callbacks are omitted', async () => {
+            service.unzip('file:///a.zip', { target: 'file:///b' });
+            await flushPromises();
+            expect(mockNativeUnzip).toHaveBeenCalledTimes(1);
+
+            mockNativeUnzip.mockRejectedValue(new Error('fail'));
+            service.unzip('file:///a.zip', { target: 'file:///b' });
+            await flushPromises();
+            expect(console.error).toHaveBeenCalled();
         });
     });
 
     // ── zip ───────────────────────────────────────────────────────────────────
 
     describe('zip()', () => {
-        it('reads folder recursively and writes zip to target path', async () => {
-            mockReaddir.mockResolvedValue({
-                files: [
-                    { name: 'manifest.json', type: 'file' },
-                    { name: 'assets', type: 'directory' }
-                ]
-            });
-            // Second readdir for the 'assets' subdirectory
-            mockReaddir.mockResolvedValueOnce({
-                files: [{ name: 'manifest.json', type: 'file' }]
-            }).mockResolvedValueOnce({
-                files: [{ name: 'img.png', type: 'file' }]
-            });
-            mockReadFile.mockResolvedValue({ data: Buffer.from('hello').toString('base64') });
+        it('should zip a folder recursively and write it as base64 to the target path', async () => {
+            mockReaddir
+                .mockResolvedValueOnce({
+                    files: [
+                        { name: 'manifest.json', type: 'file' },
+                        { name: 'assets', type: 'directory' }
+                    ]
+                })
+                .mockResolvedValueOnce({ files: [{ name: 'img.png', type: 'file' }] });
+            mockReadFile.mockImplementation(({ path }) =>
+                Promise.resolve({ data: toBase64(path.endsWith('img.png') ? 'png-data' : '{"id":"c1"}') }));
 
-            await new Promise<void>((resolve, reject) => {
-                service.zip(
-                    'file:///storage/content',
-                    { target: 'file:///storage/out.zip' },
-                    [], [],
-                    resolve, reject
-                );
-            });
+            await runZip(service, 'file:///storage/content', 'file:///storage/out.zip');
 
+            expect(mockReaddir).toHaveBeenNthCalledWith(1, { path: 'file:///storage/content' });
+            expect(mockReaddir).toHaveBeenNthCalledWith(2, { path: 'file:///storage/content/assets' });
+            expect(mockReadFile).toHaveBeenCalledWith({ path: 'file:///storage/content/manifest.json' });
+            expect(mockReadFile).toHaveBeenCalledWith({ path: 'file:///storage/content/assets/img.png' });
             expect(mockWriteFile).toHaveBeenCalledWith(
                 expect.objectContaining({ path: 'file:///storage/out.zip', recursive: true })
             );
-            // The written data should be a non-empty base64 string
-            const writtenData: string = mockWriteFile.mock.calls[0][0].data;
-            expect(typeof writtenData).toBe('string');
-            expect(writtenData.length).toBeGreaterThan(0);
+            expect(await readWrittenZip()).toEqual({
+                'manifest.json': '{"id":"c1"}',
+                'assets/img.png': 'png-data'
+            });
         });
 
-        it('skips directories in directoriesToBeSkipped', async () => {
-            mockReaddir.mockResolvedValue({
-                files: [
-                    { name: 'keep.txt', type: 'file' },
-                    { name: 'skipMe', type: 'directory' }
-                ]
-            });
-            mockReadFile.mockResolvedValue({ data: Buffer.from('hello').toString('base64') });
+        it('should treat plain string entries (older readdir API) as files', async () => {
+            mockReaddir.mockResolvedValueOnce({ files: ['a.txt', 'b.txt'] });
+            mockReadFile.mockResolvedValue({ data: toBase64('x') });
 
-            await new Promise<void>((resolve, reject) => {
-                service.zip('/src', { target: '/out.zip' }, ['skipMe'], [], resolve, reject);
-            });
+            await runZip(service, '/src', '/out.zip');
 
-            // readdir should only be called once (for /src), 'skipMe' dir not entered
             expect(mockReaddir).toHaveBeenCalledTimes(1);
+            expect(await readWrittenZip()).toEqual({ 'a.txt': 'x', 'b.txt': 'x' });
         });
 
-        it('skips files in filesToBeSkipped', async () => {
-            mockReaddir.mockResolvedValue({
+        it('should skip directories that match or contain an entry in directoriesToBeSkipped', async () => {
+            mockReaddir.mockResolvedValueOnce({
                 files: [
                     { name: 'keep.txt', type: 'file' },
-                    { name: 'skip.json', type: 'file' }
+                    { name: 'skipMe', type: 'directory' },
+                    { name: 'old-skipMe-backup', type: 'directory' }
                 ]
             });
-            mockReadFile.mockResolvedValue({ data: Buffer.from('hello').toString('base64') });
+            mockReadFile.mockResolvedValue({ data: toBase64('hello') });
 
-            await new Promise<void>((resolve, reject) => {
-                service.zip('/src', { target: '/out.zip' }, [], ['skip.json'], resolve, reject);
-            });
+            await runZip(service, '/src', '/out.zip', ['skipMe']);
 
-            // Only 'keep.txt' should be read
-            expect(mockReadFile).toHaveBeenCalledTimes(1);
-            expect(mockReadFile.mock.calls[0][0].path).toContain('keep.txt');
+            // only /src is read; neither skipped directory is entered
+            expect(mockReaddir).toHaveBeenCalledTimes(1);
+            expect(await readWrittenZip()).toEqual({ 'keep.txt': 'hello' });
         });
 
-        it('calls errorCallback when readdir fails', async () => {
+        it('should skip files whose relative path matches or contains an entry in filesToBeSkipped', async () => {
+            mockReaddir
+                .mockResolvedValueOnce({
+                    files: [
+                        { name: 'keep.txt', type: 'file' },
+                        { name: 'skip.json', type: 'file' },
+                        { name: 'assets', type: 'directory' }
+                    ]
+                })
+                .mockResolvedValueOnce({
+                    files: [
+                        { name: 'img.png', type: 'file' },
+                        { name: 'logo.png', type: 'file' }
+                    ]
+                });
+            mockReadFile.mockResolvedValue({ data: toBase64('hello') });
+
+            await runZip(service, '/src', '/out.zip', [], ['skip.json', 'assets/img.png']);
+
+            const readPaths = mockReadFile.mock.calls.map((c: any[]) => c[0].path);
+            expect(readPaths).toEqual(['/src/keep.txt', '/src/assets/logo.png']);
+            expect(Object.keys(await readWrittenZip()).sort()).toEqual(['assets/logo.png', 'keep.txt']);
+        });
+
+        it('should strip a trailing slash from the source folder path', async () => {
+            mockReaddir.mockResolvedValueOnce({ files: [{ name: 'a.txt', type: 'file' }] });
+            mockReadFile.mockResolvedValue({ data: toBase64('x') });
+
+            await runZip(service, '/src/', '/out.zip');
+
+            expect(mockReaddir).toHaveBeenCalledWith({ path: '/src' });
+            expect(mockReadFile).toHaveBeenCalledWith({ path: '/src/a.txt' });
+        });
+
+        it('should write an empty zip for an empty folder', async () => {
+            mockReaddir.mockResolvedValueOnce({ files: [] });
+
+            await runZip(service, '/src', '/out.zip');
+
+            expect(mockReadFile).not.toHaveBeenCalled();
+            expect(mockWriteFile).toHaveBeenCalledTimes(1);
+            expect(await readWrittenZip()).toEqual({});
+        });
+
+        it('should default skip lists to empty when not provided', async () => {
+            mockReaddir.mockResolvedValueOnce({ files: [{ name: 'a.txt', type: 'file' }] });
+            mockReadFile.mockResolvedValue({ data: toBase64('x') });
+            const successCallback = jest.fn();
+
+            service.zip('/src', { target: '/out.zip' }, undefined, undefined, successCallback);
+            await new Promise<void>(resolve => successCallback.mockImplementation(resolve));
+
+            expect(await readWrittenZip()).toEqual({ 'a.txt': 'x' });
+        });
+
+        it('should invoke errorCallback when readdir fails', async () => {
             mockReaddir.mockRejectedValue(new Error('dir error'));
 
-            await new Promise<void>((resolve) => {
-                service.zip('/bad', { target: '/out.zip' }, [], [], () => resolve(), (e) => {
-                    expect(e.message).toBe('dir error');
-                    resolve();
-                });
-            });
+            await expect(runZip(service, '/bad', '/out.zip')).rejects.toThrow('dir error');
+            expect(mockWriteFile).not.toHaveBeenCalled();
         });
 
-        it('strips trailing slash from source folder path', async () => {
-            mockReaddir.mockResolvedValue({ files: [] });
+        it('should invoke errorCallback when readFile fails', async () => {
+            mockReaddir.mockResolvedValueOnce({ files: [{ name: 'a.txt', type: 'file' }] });
+            mockReadFile.mockRejectedValue(new Error('read error'));
 
-            await new Promise<void>((resolve, reject) => {
-                service.zip('/src/', { target: '/out.zip' }, [], [], resolve, reject);
-            });
+            await expect(runZip(service, '/src', '/out.zip')).rejects.toThrow('read error');
+            expect(mockWriteFile).not.toHaveBeenCalled();
+        });
 
-            // readdir called without trailing slash
-            expect(mockReaddir).toHaveBeenCalledWith({ path: '/src' });
+        it('should invoke errorCallback when writeFile fails', async () => {
+            mockReaddir.mockResolvedValueOnce({ files: [] });
+            mockWriteFile.mockRejectedValue(new Error('write error'));
+
+            await expect(runZip(service, '/src', '/out.zip')).rejects.toThrow('write error');
+        });
+
+        it('should not throw when callbacks are omitted', async () => {
+            mockReaddir.mockRejectedValue(new Error('dir error'));
+
+            expect(() => service.zip('/src', { target: '/out.zip' })).not.toThrow();
+            await flushPromises();
         });
     });
 });

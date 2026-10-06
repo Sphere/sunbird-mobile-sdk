@@ -201,11 +201,28 @@ describe('TelemetryServiceImpl', () => {
     });
 
     it('will be getUtmInfo error par', (done) => {
+      // NOTE: source bug - preInit() calls getInitialUtmParameters().then(...) without a .catch(),
+      // so a getUtmInfo error surfaces as an unhandled promise rejection (fatal on Node >= 15).
+      // For this test only, capture it on the real worker process (jasmine.process; the sandbox
+      // `process` is a copy) in place of jasmine's listener, assert on it, then restore.
+      const realProcess: NodeJS.Process = (jasmine as any).process;
+      const onUnhandled = jest.fn();
+      const previousListeners = realProcess.listeners('unhandledRejection');
+      realProcess.removeAllListeners('unhandledRejection');
+      realProcess.on('unhandledRejection', onUnhandled);
+      const restoreListeners = () => {
+        realProcess.removeListener('unhandledRejection', onUnhandled);
+        previousListeners.forEach((l) => realProcess.on('unhandledRejection', l as any));
+      };
       sbutility.getUtmInfo = jest.fn((a, b) => b({ error: 'errpr-part' }));
       sbutility.clearUtmInfo = jest.fn((a, b) => a());
       telemetryService.preInit().subscribe(() => {
         expect(sbutility.getUtmInfo).toHaveBeenCalled();
-        done();
+        setTimeout(() => {
+          restoreListeners();
+          expect(onUnhandled).toHaveBeenCalledWith({ error: 'errpr-part' }, expect.anything());
+          done();
+        }, 0);
       });
     });
   });

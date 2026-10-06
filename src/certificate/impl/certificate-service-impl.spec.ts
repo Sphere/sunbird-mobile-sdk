@@ -8,6 +8,13 @@ import { CsInjectionTokens } from '../../injection-tokens';
 import { GetPublicKeyHandler } from '../handlers/get-public-key-handler';
 
 jest.mock('../handlers/get-public-key-handler');
+// Paths are now resolved through Capacitor Filesystem via FilePathService (unavailable under jsdom).
+// Plain function (not jest.fn) so jest.resetAllMocks() in beforeEach doesn't wipe it.
+jest.mock('../../services/file-path/file-path.service', () => ({
+    FilePathService: {
+        getFilePath: () => Promise.resolve('file:///some_external_root/')
+    }
+}));
 
 describe('CertificateServiceImpl', () => {
     let certificateServiceImpl: CertificateServiceImpl;
@@ -142,9 +149,12 @@ describe('CertificateServiceImpl', () => {
             fileName: 'sample-cer',
             mimeType: 'certificate',
         } as any;
-        mockFileService.writeFile = jest.fn(() => Promise.resolve('certificate'));
-        certificateServiceImpl.downloadCertificate(req).subscribe(() => {
-            expect(mockFileService.writeFile).toHaveBeenCalled();
+        mockFileService.writeFile = jest.fn(() => Promise.resolve({ success: true }));
+        certificateServiceImpl.downloadCertificate(req).subscribe((res) => {
+            expect(mockFileService.writeFile).toHaveBeenCalledWith(
+                'file:///some_external_root/', 'sample-cer', undefined, { replace: true }
+            );
+            expect(res).toEqual({ path: 'file:///some_external_root/sample-cer' });
             done();
         });
     });

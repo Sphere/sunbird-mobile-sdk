@@ -103,6 +103,11 @@ jest.mock('../handlers/import/validate-ecar');
 jest.mock('../handlers/import/extract-payloads');
 jest.mock('../handlers/import/create-content-import-manifest');
 jest.mock('../handlers/content-aggregator');
+jest.mock('../../services/file-path/file-path.service', () => ({
+    FilePathService: {
+        getFilePath: jest.fn().mockResolvedValue('file:///SAMPLE_PATH/')
+    }
+}));
 
 describe('ContentServiceImpl', () => {
     let contentService: ContentService;
@@ -200,6 +205,13 @@ describe('ContentServiceImpl', () => {
         (ValidateEcar as jest.Mock<ValidateEcar>).mockClear();
         (ExtractPayloads as jest.Mock<ExtractPayloads>).mockClear();
         (CreateContentImportManifest as jest.Mock<CreateContentImportManifest>).mockClear();
+    });
+
+    // Several tests replace the global JSON.parse with a jest.fn(); restore it so the stub doesn't leak
+    // into later tests (it broke importContent's resume-scenario test and source-map-support's stack traces).
+    const originalJsonParse = JSON.parse;
+    afterEach(() => {
+        JSON.parse = originalJsonParse;
     });
 
     it('should return an instance of ContentServiceImpl from container', () => {
@@ -460,7 +472,7 @@ describe('ContentServiceImpl', () => {
                 [ContentEntry.COLUMN_NAME_PRIMARY_CATEGORY]: ''
             };
             const val = new Map();
-            const n: NodeJS.Timeout  = setTimeout( () =>  { /* snip */  }, 500);
+            const n: any = setTimeout( () =>  { /* snip */  }, 500);
             val.set('SAMPLE_CONTENT_ID', n);
             contentUpdateSizeOnDeviceTimeoutRef.get = jest.fn(() => n) as any;
             const fetchData = jest.fn().mockImplementation(() => of(contents));
@@ -1792,8 +1804,8 @@ describe('ContentServiceImpl', () => {
             contentService.downloadTranscriptFile(transcriptReq).then(() => {
                 // assert
                 expect(mockFileService.exists).toHaveBeenCalled();
-                expect(mockFileService.createDir).toHaveBeenNthCalledWith(1, 'undefinedtranscript', false);
-                expect(mockFileService.createDir).toHaveBeenNthCalledWith(2, 'undefinedtranscript/sample-id', false);
+                expect(mockFileService.createDir).toHaveBeenNthCalledWith(1, 'file:///SAMPLE_PATH/transcript', false);
+                expect(mockFileService.createDir).toHaveBeenNthCalledWith(2, 'file:///SAMPLE_PATH/transcript/sample-id', false);
                 expect(window['downloadManager'].enqueue).toHaveBeenCalled();
                 expect(window['downloadManager'].query).toHaveBeenCalled();
                 expect(sbutility.copyFile).toHaveBeenCalled();
@@ -1851,8 +1863,8 @@ describe('ContentServiceImpl', () => {
             contentService.downloadTranscriptFile(transcriptReq).then(() => {
                 // assert
                 expect(mockFileService.exists).toHaveBeenCalled();
-                expect(mockFileService.createDir).toHaveBeenNthCalledWith(1, 'undefinedtranscript', false);
-                expect(mockFileService.createDir).toHaveBeenNthCalledWith(2, 'undefinedtranscript/sample-id', false);
+                expect(mockFileService.createDir).toHaveBeenNthCalledWith(1, 'file:///SAMPLE_PATH/transcript', false);
+                expect(mockFileService.createDir).toHaveBeenNthCalledWith(2, 'file:///SAMPLE_PATH/transcript/sample-id', false);
                 expect(window['downloadManager'].enqueue).toHaveBeenCalled();
                 expect(window['downloadManager'].query).toHaveBeenCalled();
                 expect(sbutility.copyFile).toHaveBeenCalled();
@@ -1884,12 +1896,27 @@ describe('ContentServiceImpl', () => {
             } as any;
             sbutility.copyFile = jest.fn(((_, __, ___, cb, err) => { cb(); }));
             sbutility.rm = jest.fn((_, __, ___, err) => err(true));
+            // NOTE: source fires copyFile().then(() => this.deleteFolder(...)) without a catch, so a failing
+            // rm becomes an unhandled rejection (fatal under Node >= 15). Wrap the real deleteFolder so the
+            // test can observe its rejection without crashing the worker.
+            let deleteFolderResult: Promise<any> | undefined;
+            const originalDeleteFolder = (contentService as any).deleteFolder.bind(contentService);
+            const deleteFolderSpy = jest.spyOn(contentService as any, 'deleteFolder').mockImplementation((dir) => {
+                deleteFolderResult = originalDeleteFolder(dir);
+                return deleteFolderResult!.catch(() => undefined);
+            });
             // act
-            contentService.downloadTranscriptFile(transcriptReq).then(() => {
+            contentService.downloadTranscriptFile(transcriptReq).then(async () => {
+                // let the fire-and-forget copyFile -> deleteFolder chain settle
+                await new Promise((resolve) => setTimeout(resolve, 0));
+                expect(deleteFolderSpy).toHaveBeenCalledWith('http//:sample-path/do_id/fileName');
+                await expect(deleteFolderResult).rejects.toBe(true);
+                expect(sbutility.rm).toHaveBeenCalled();
+                deleteFolderSpy.mockRestore();
                 // assert
                 expect(mockFileService.exists).toHaveBeenCalled();
-                expect(mockFileService.createDir).toHaveBeenNthCalledWith(1, 'undefinedtranscript', false);
-                expect(mockFileService.createDir).toHaveBeenNthCalledWith(2, 'undefinedtranscript/sample-id', false);
+                expect(mockFileService.createDir).toHaveBeenNthCalledWith(1, 'file:///SAMPLE_PATH/transcript', false);
+                expect(mockFileService.createDir).toHaveBeenNthCalledWith(2, 'file:///SAMPLE_PATH/transcript/sample-id', false);
                 expect(window['downloadManager'].enqueue).toHaveBeenCalled();
                 expect(window['downloadManager'].query).toHaveBeenCalled();
                 expect(sbutility.copyFile).toHaveBeenCalled();
